@@ -20,7 +20,7 @@ export async function resolveUser(ref: string | null | undefined, actor: Actor):
   const partial = users.filter((u) => u.name?.toLowerCase().split(/\s+/).some((p) => p.startsWith(r)) || u.email.startsWith(r));
   if (partial.length === 1) return partial[0].id;
   const options = users.map((u) => `${u.name ?? u.email} <${u.email}>`).join(", ");
-  throw new Error(`Unknown founder "${ref}". Use one of: ${options}, or "me".`);
+  throw new Error(`Unknown user "${ref}". Use one of: ${options}, or "me".`);
 }
 
 /** "Raiko" / "Raiko's Claude" for a stored actor. */

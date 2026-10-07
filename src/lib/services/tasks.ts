@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { by, isAI, type Actor } from "../actor";
 import { db } from "../db";
 import { logActivity } from "./activity";
+import { goalIdFor } from "./goals";
 import { resolveUser } from "./people";
 
 export const TASK_STATUSES = ["proposed", "todo", "doing", "blocked", "done", "dropped"] as const;
@@ -9,7 +10,11 @@ export const OPEN_STATUSES = ["proposed", "todo", "doing", "blocked"];
 export const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-const include = { assignee: true, meeting: { select: { id: true, title: true, date: true } } } satisfies Prisma.TaskInclude;
+const include = {
+  assignee: true,
+  meeting: { select: { id: true, title: true, date: true } },
+  goal: { select: { id: true, number: true, title: true } },
+} satisfies Prisma.TaskInclude;
 
 /** Accepts 12, "12", "T-12", "#12" or a task id. */
 export async function findTask(ref: string | number) {
@@ -24,13 +29,14 @@ export async function findTask(ref: string | number) {
 
 export async function listTasks(
   actor: Actor,
-  f: { status?: string[]; assignee?: string; search?: string; dueBefore?: Date; includeClosed?: boolean; meetingId?: string; limit?: number } = {},
+  f: { status?: string[]; assignee?: string; search?: string; dueBefore?: Date; includeClosed?: boolean; meetingId?: string; goal?: string; limit?: number } = {},
 ) {
   const where: Prisma.TaskWhereInput = {};
   if (f.status?.length) where.status = { in: f.status };
   else if (!f.includeClosed) where.status = { in: OPEN_STATUSES };
   if (f.assignee !== undefined) where.assigneeId = await resolveUser(f.assignee, actor);
   if (f.meetingId) where.meetingId = f.meetingId;
+  if (f.goal !== undefined) where.goalId = await goalIdFor(f.goal);
   if (f.dueBefore) where.dueDate = { lte: f.dueBefore };
   if (f.search) {
     where.OR = [
@@ -65,6 +71,7 @@ export type TaskInput = {
   dueDate?: Date | null;
   tags?: string[];
   meetingId?: string | null;
+  goal?: string | null;
 };
 
 function checkEnum(value: string | undefined, allowed: readonly string[], name: string) {
@@ -77,6 +84,7 @@ export async function createTask(actor: Actor, input: TaskInput) {
   checkEnum(input.status, TASK_STATUSES, "status");
   checkEnum(input.priority, PRIORITIES, "priority");
   const assigneeId = await resolveUser(input.assignee ?? null, actor);
+  const goalId = (await goalIdFor(input.goal)) ?? null;
   return db.$transaction(async (tx) => {
     const task = await tx.task.create({
       data: {
@@ -88,6 +96,7 @@ export async function createTask(actor: Actor, input: TaskInput) {
         dueDate: input.dueDate ?? null,
         tags: (input.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean),
         meetingId: input.meetingId ?? null,
+        goalId,
         completedAt: input.status === "done" ? new Date() : null,
         ...by(actor, "created"),
         ...by(actor, "text"),
@@ -125,6 +134,7 @@ export async function updateTask(actor: Actor, ref: string | number, patch: Task
   if (patch.priority !== undefined) data.priority = patch.priority;
   if (patch.assignee !== undefined) data.assigneeId = await resolveUser(patch.assignee, actor);
   if (patch.dueDate !== undefined) data.dueDate = patch.dueDate;
+  if (patch.goal !== undefined) data.goalId = await goalIdFor(patch.goal);
   if (patch.tags !== undefined) data.tags = patch.tags.map((t) => t.trim().toLowerCase()).filter(Boolean);
 
   return db.$transaction(async (tx) => {
@@ -138,8 +148,8 @@ export async function updateTask(actor: Actor, ref: string | number, patch: Task
     }
     let task = current;
     if (Object.keys(data).length) {
-      const { assignee: _a, meeting: _m, ...before } = current;
-      void _a; void _m;
+      const { assignee: _a, meeting: _m, goal: _g, ...before } = current;
+      void _a; void _m; void _g;
       task = await tx.task.update({ where: { id: current.id }, data, include });
       await logActivity(tx, actor, "task", task.id, "updated", describeTaskChange(current, task), before);
     }
@@ -147,8 +157,9 @@ export async function updateTask(actor: Actor, ref: string | number, patch: Task
   });
 }
 
-function describeTaskChange(a: { number: number; status: string; title: string; assigneeId: string | null; dueDate: Date | null; priority: string }, b: typeof a) {
+function describeTaskChange(a: { number: number; status: string; title: string; assigneeId: string | null; dueDate: Date | null; priority: string; goalId: string | null }, b: typeof a) {
   const parts: string[] = [];
+  if (a.goalId !== b.goalId) parts.push("goal");
   if (a.status !== b.status) parts.push(`status ${a.status} → ${b.status}`);
   if (a.title !== b.title) parts.push("title");
   if (a.assigneeId !== b.assigneeId) parts.push("assignee");

@@ -70,6 +70,12 @@ export const STATUS_META: Record<string, { label: string; cls: string }> = {
   dropped: { label: "Dropped", cls: "border-line text-ink-3 bg-transparent line-through" },
 };
 
+export const HORIZON_META: Record<string, { label: string; hint: string }> = {
+  now: { label: "Now", hint: "What we are working towards this month" },
+  next: { label: "Next", hint: "Lined up after the current goals" },
+  later: { label: "Later", hint: "Ideas and bigger bets" },
+};
+
 export const PRIORITY_META: Record<string, { label: string; cls: string }> = {
   low: { label: "Low", cls: "text-ink-3" },
   normal: { label: "Normal", cls: "text-ink-2" },

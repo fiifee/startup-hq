@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  CalendarDays, CheckSquare, FileText, FolderOpen, Gavel, Home, Inbox, ListChecks, Menu, Newspaper, Search, Settings, X, Activity,
+  CalendarDays, CheckSquare, FileText, FolderOpen, Gavel, Home, Inbox, ListChecks, Menu, Newspaper, Search, Settings, X, Activity, BookOpen, Target,
 } from "lucide-react";
 import { Avatar, type Founder } from "./people";
 
 const NAV = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/brief", label: "Company brief", icon: BookOpen },
+  { href: "/goals", label: "Goals", icon: Target },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/meetings", label: "Meetings", icon: CalendarDays },
   { href: "/agenda", label: "Next agenda", icon: ListChecks },
@@ -125,7 +127,7 @@ export function Shell({ user, reviewCount, children }: { user: Founder; reviewCo
 }
 
 /**
- * Picks up changes other founders and their AIs make. Refreshes server data every
+ * Picks up changes other users and their AIs make. Refreshes server data every
  * 30 s while the tab is visible, and never while someone is typing.
  */
 export function AutoRefresh({ seconds = 30 }: { seconds?: number }) {

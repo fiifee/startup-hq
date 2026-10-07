@@ -179,3 +179,37 @@ export function noteForAI(
     })),
   };
 }
+
+const CHECKBOX = /^(\s*(?:[-*+]|\d+[.)])\s+\[)( |x|X)(\]\s*)(.*)$/gm;
+
+/** The checklist items in a block, in order. */
+export function checklistItems(content: string) {
+  return [...content.matchAll(CHECKBOX)].map((m) => ({ checked: m[2] !== " ", text: m[4] }));
+}
+
+/**
+ * Tick or untick one checklist item. Ticking is not rewriting, so the block keeps
+ * its author and AI may tick items in a person's block. `item` is the 0-based
+ * index or a piece of the item's text.
+ */
+export async function toggleChecklistItem(actor: Actor, blockId: string, item: number | string, checked?: boolean) {
+  const block = await db.block.findUnique({ where: { id: blockId } });
+  if (!block) throw new Error(`Block ${blockId} not found`);
+  const items = checklistItems(block.content);
+  if (!items.length) throw new Error("This block has no checklist");
+  const index =
+    typeof item === "number" ? item : items.findIndex((i) => i.text.toLowerCase().includes(String(item).toLowerCase()));
+  if (index < 0 || index >= items.length) throw new Error(`No checklist item ${JSON.stringify(item)}. Items: ${items.map((i) => i.text).join(" | ")}`);
+  const target = checked ?? !items[index].checked;
+  let n = -1;
+  const content = block.content.replace(CHECKBOX, (whole, pre, _mark, post, text) => {
+    n += 1;
+    return n === index ? `${pre}${target ? "x" : " "}${post}${text}` : whole;
+  });
+  if (content === block.content) return { checked: target };
+  await db.$transaction(async (tx) => {
+    await tx.block.update({ where: { id: blockId }, data: { content } });
+    await logActivity(tx, actor, "block", blockId, "updated", `${target ? "Checked" : "Unchecked"}: ${items[index].text.slice(0, 80)}`, block);
+  });
+  return { checked: target };
+}

@@ -2,13 +2,14 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { driveStatus } from "../google";
 import { recentActivity } from "./activity";
+import { briefForAI } from "./brief";
 import { actorName, listFounders } from "./people";
 
 /** A compact picture of the whole workspace: the first thing an AI should read. */
 export async function workspaceOverview(actor: Actor) {
   const now = new Date();
   const weekAgo = new Date(Date.now() - 7 * 86_400_000);
-  const [founders, open, proposed, overdue, mine, decisions, meetings, agenda, suggestions, activity, drive] = await Promise.all([
+  const [founders, open, proposed, overdue, mine, decisions, meetings, agenda, suggestions, activity, drive, brief] = await Promise.all([
     listFounders(),
     db.task.groupBy({ by: ["status"], _count: true, where: { status: { in: ["todo", "doing", "blocked"] } } }),
     db.task.count({ where: { status: "proposed" } }),
@@ -22,13 +23,15 @@ export async function workspaceOverview(actor: Actor) {
     db.suggestion.count({ where: { status: "open" } }),
     recentActivity({ since: weekAgo, limit: 25 }),
     driveStatus(),
+    briefForAI(),
   ]);
   const name = (byId: string | null, agent: string | null) => actorName(founders, byId, agent);
   return {
     you: founders.find((f) => f.id === actor.userId)?.email ?? null,
     actingAs: actor.agent ? name(actor.userId, actor.agent) : null,
     today: now.toISOString().slice(0, 10),
-    founders: founders.map((f) => ({ name: f.name, email: f.email, owner: f.isOwner })),
+    companyBrief: { noteId: brief.noteId, narrative: brief.narrative.map((b) => b.content).join("\n\n") || "(empty: offer to draft it)", rightNow: brief.rightNow },
+    users: founders.map((f) => ({ name: f.name, email: f.email, owner: f.isOwner })),
     taskCounts: Object.fromEntries([...open.map((g) => [g.status, g._count]), ["proposed", proposed]]),
     yourOpenTasks: mine.map((t) => ({ ref: `T-${t.number}`, title: t.title, status: t.status, due: t.dueDate?.toISOString().slice(0, 10) ?? null })),
     overdue: overdue.map((t) => ({ ref: `T-${t.number}`, title: t.title, assignee: t.assignee?.name ?? t.assignee?.email ?? null, due: t.dueDate?.toISOString().slice(0, 10) })),
@@ -39,9 +42,11 @@ export async function workspaceOverview(actor: Actor) {
     drive: drive.connected ? { folder: drive.folderName } : "not connected",
     lastWeek: activity.map((a) => `${a.createdAt.toISOString().slice(0, 10)} ${name(a.byId, a.agent)}: ${a.summary}`),
     rules: [
-      "Everything you write is labelled with your founder's name and your agent name.",
+      "Reply and write in the language the user is writing to you in.",
+      "Everything you write is labelled with your user's name and your agent name.",
       "You cannot overwrite text a person wrote: such edits become suggestions a person accepts.",
-      "Meeting action items should be created as proposed tasks for a founder to confirm.",
+      "Meeting action items should be created as proposed tasks for a user to confirm.",
+      "Keep the company brief current after work that changes the picture.",
     ],
   };
 }

@@ -95,7 +95,7 @@ export default async function SettingsPage(props: PageProps<"/settings">) {
         <ProfileForm user={user} />
       </Section>
 
-      <Section id="founders" title="Founders" intro={user.isOwner ? "Add co-founders by their Google email. They sign in with Google." : undefined}>
+      <Section id="users" title="Users" intro={user.isOwner ? "Add people by their Google email. They sign in with Google." : undefined}>
         <Founders founders={founders} meId={user.id} isOwner={user.isOwner} />
       </Section>
 

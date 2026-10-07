@@ -8,7 +8,7 @@ const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"
 
 export const metadata: Metadata = {
   title: { default: "Startup HQ", template: "%s · Startup HQ" },
-  description: "Tasks, meeting notes, decisions and Drive for the founders, run together with your AI.",
+  description: "Tasks, meeting notes, decisions and Drive for the team, run together with your AI.",
   robots: { index: false, follow: false },
 };
 

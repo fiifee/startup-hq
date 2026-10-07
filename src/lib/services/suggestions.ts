@@ -6,14 +6,17 @@ export async function listOpenSuggestions() {
   const rows = await db.suggestion.findMany({ where: { status: "open" }, orderBy: { createdAt: "desc" } });
   const blockIds = rows.filter((r) => r.entityType === "block").map((r) => r.entityId);
   const taskIds = rows.filter((r) => r.entityType === "task").map((r) => r.entityId);
-  const [blocks, tasks] = await Promise.all([
-    db.block.findMany({ where: { id: { in: blockIds } }, include: { note: { select: { id: true, title: true } } } }),
+  const goalIds = rows.filter((r) => r.entityType === "goal").map((r) => r.entityId);
+  const [blocks, tasks, goals] = await Promise.all([
+    db.block.findMany({ where: { id: { in: blockIds } }, include: { note: { select: { id: true, title: true, kind: true } } } }),
     db.task.findMany({ where: { id: { in: taskIds } } }),
+    db.goal.findMany({ where: { id: { in: goalIds } } }),
   ]);
   return rows.map((s) => ({
     ...s,
     block: blocks.find((b) => b.id === s.entityId) ?? null,
     task: tasks.find((t) => t.id === s.entityId) ?? null,
+    goal: goals.find((g) => g.id === s.entityId) ?? null,
   }));
 }
 
@@ -49,6 +52,20 @@ export async function resolveSuggestion(actor: Actor, id: string, accept: boolea
           },
         });
         await logActivity(tx, actor, "task", task.id, "updated", `Accepted AI wording for T-${task.number}`, task);
+      }
+    }
+    if (accept && s.entityType === "goal") {
+      const goal = await tx.goal.findUnique({ where: { id: s.entityId } });
+      if (goal) {
+        await tx.goal.update({
+          where: { id: goal.id },
+          data: {
+            ...(typeof proposed.title === "string" ? { title: proposed.title } : {}),
+            ...(typeof proposed.description === "string" ? { description: proposed.description } : {}),
+            ...by(author, "text"),
+          },
+        });
+        await logActivity(tx, actor, "goal", goal.id, "updated", `Accepted AI wording for G-${goal.number}`, goal);
       }
     }
     await tx.suggestion.update({ where: { id }, data: { status: accept ? "accepted" : "rejected", resolvedById: actor.userId, resolvedAt: new Date() } });

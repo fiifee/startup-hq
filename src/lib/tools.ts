@@ -10,8 +10,10 @@ import { recentActivity } from "./services/activity";
 import { addAgendaItem, getAgenda, setAgendaItemDone } from "./services/agenda";
 import { findDecision, listDecisions, recordDecision, updateDecision } from "./services/decisions";
 import { createDoc, linkFile, listFolder, readFile, searchDrive } from "./services/drive";
+import { briefForAI, briefStaleness, markBriefReviewed } from "./services/brief";
+import { createGoal, getGoalDetail, listGoals, updateGoal } from "./services/goals";
 import { createMeeting, getMeeting, listMeetings, saveMeetingOutcome, updateMeeting } from "./services/meetings";
-import { appendToNote, createNote, deleteBlock, editBlock, getNote, listNotes, noteForAI, updateNote } from "./services/notes";
+import { appendToNote, createNote, deleteBlock, editBlock, getNote, listNotes, noteForAI, toggleChecklistItem, updateNote } from "./services/notes";
 import { workspaceOverview } from "./services/overview";
 import { actorName, listFounders } from "./services/people";
 import { searchAll } from "./services/search";
@@ -39,7 +41,7 @@ async function namer() {
   return (byId: string | null, agent: string | null) => actorName(founders, byId, agent);
 }
 
-function taskOut(t: { number: number; title: string; status: string; priority: string; dueDate: Date | null; tags: string[]; assignee?: { name: string | null; email: string } | null; createdAgent?: string | null; meetingId?: string | null }) {
+function taskOut(t: { number: number; title: string; status: string; priority: string; dueDate: Date | null; tags: string[]; assignee?: { name: string | null; email: string } | null; createdAgent?: string | null; meetingId?: string | null; goal?: { number: number; title: string } | null }) {
   return {
     ref: `T-${t.number}`,
     title: t.title,
@@ -50,8 +52,11 @@ function taskOut(t: { number: number; title: string; status: string; priority: s
     tags: t.tags,
     createdByAI: !!t.createdAgent,
     meetingId: t.meetingId ?? null,
+    goal: t.goal ? `G-${t.goal.number} ${t.goal.title}` : null,
   };
 }
+
+const goalRef = z.union([z.string(), z.number()]).describe('Goal like "G-2" or 2, or the goal id');
 
 function def<S extends z.ZodRawShape>(d: {
   name: string;
@@ -69,7 +74,7 @@ export const TOOLS: ToolDef[] = [
     name: "get_overview",
     title: "Workspace overview",
     description:
-      "Start here. Snapshot of the startup workspace: founders, task counts, your open tasks, overdue work, recent decisions and meetings, next meeting's agenda, and the last week's activity.",
+      "Start here. Snapshot of the startup workspace: the company brief, users, task counts, your open tasks, overdue work, recent decisions and meetings, next meeting's agenda, and the last week's activity.",
     input: {},
     readOnly: true,
     run: (actor) => workspaceOverview(actor),
@@ -98,11 +103,12 @@ export const TOOLS: ToolDef[] = [
     description: "List tasks. By default only open ones (proposed, todo, doing, blocked).",
     input: {
       status: z.array(z.enum(["proposed", "todo", "doing", "blocked", "done", "dropped"])).optional(),
-      assignee: z.string().optional().describe('"me", a founder\'s name or email, or "none"'),
+      assignee: z.string().optional().describe('"me", a user\'s name or email, or "none"'),
       search: z.string().optional(),
       due_before: date.optional(),
       include_closed: z.boolean().optional(),
       meeting_id: z.string().optional(),
+      goal: goalRef.optional(),
       limit: z.number().int().min(1).max(300).optional(),
     },
     readOnly: true,
@@ -114,6 +120,7 @@ export const TOOLS: ToolDef[] = [
         dueBefore: toDate(a.due_before),
         includeClosed: a.include_closed,
         meetingId: a.meeting_id,
+        goal: a.goal === undefined ? undefined : String(a.goal),
         limit: a.limit,
       })).map(taskOut),
   }),
@@ -141,16 +148,17 @@ export const TOOLS: ToolDef[] = [
     name: "create_task",
     title: "Create task",
     description:
-      'Create a task. Use status "proposed" for action items you inferred (e.g. from a meeting) so a founder confirms them; use "todo" when a founder asked you to add it.',
+      'Create a task. Use status "proposed" for action items you inferred (e.g. from a meeting) so a user confirms them; use "todo" when a user asked you to add it. Link it to a goal when it serves one.',
     input: {
       title: z.string().min(1),
       description: z.string().optional(),
-      assignee: z.string().optional().describe('"me", a founder\'s name or email'),
+      assignee: z.string().optional().describe('"me", a user\'s name or email'),
       due: date.optional(),
       priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
       status: z.enum(["proposed", "todo", "doing", "blocked", "done"]).optional(),
       tags: z.array(z.string()).optional(),
       meeting_id: z.string().optional(),
+      goal: goalRef.optional(),
     },
     run: async (actor, a) =>
       taskOut(
@@ -163,6 +171,7 @@ export const TOOLS: ToolDef[] = [
           status: a.status,
           tags: a.tags,
           meetingId: a.meeting_id,
+          goal: a.goal === undefined ? undefined : String(a.goal),
         }),
       ),
   }),
@@ -178,9 +187,10 @@ export const TOOLS: ToolDef[] = [
       due: date.nullable().optional().describe("YYYY-MM-DD, or null to clear"),
       priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
       tags: z.array(z.string()).optional(),
+      goal: goalRef.nullable().optional().describe('Goal to link, or null to unlink'),
       title: z.string().optional(),
       description: z.string().optional(),
-      reason: z.string().optional().describe("Why, shown to the founder when it becomes a suggestion"),
+      reason: z.string().optional().describe("Why, shown to the user when it becomes a suggestion"),
     },
     run: async (actor, a) => {
       const { task, suggestionId } = await updateTask(
@@ -192,6 +202,7 @@ export const TOOLS: ToolDef[] = [
           dueDate: a.due === null ? null : toDate(a.due),
           priority: a.priority,
           tags: a.tags,
+          goal: a.goal === undefined ? undefined : a.goal === null ? null : String(a.goal),
           title: a.title,
           description: a.description,
         },
@@ -208,6 +219,116 @@ export const TOOLS: ToolDef[] = [
     run: async (actor, a) => {
       await addTaskComment(actor, a.task, a.body);
       return { ok: true };
+    },
+  }),
+
+  // ---- Company brief
+  def({
+    name: "get_brief",
+    title: "Company brief",
+    description:
+      "The living company brief: the narrative (blocks with ids and authors) plus a computed 'right now' (goals and progress, in progress, blocked, recently done, decisions), and the changes since the narrative was last updated. Update the narrative with edit_block / append_to_note on its noteId; call brief_reviewed when it needs no change.",
+    input: {},
+    readOnly: true,
+    run: async () => {
+      const brief = await briefForAI();
+      const founders = await listFounders();
+      const { since, changes } = await briefStaleness(brief.noteId);
+      return {
+        ...brief,
+        lastUpdated: since,
+        changesSinceLastUpdate: changes.slice(-80).map((c) => `${c.createdAt.toISOString().slice(0, 10)} ${actorName(founders, c.byId, c.agent)}: ${c.summary}`),
+      };
+    },
+  }),
+  def({
+    name: "brief_reviewed",
+    title: "Mark brief reviewed",
+    description: "Record that you checked the company brief against recent changes and it is still accurate.",
+    input: {},
+    run: async () => {
+      await markBriefReviewed();
+      return { ok: true };
+    },
+  }),
+
+  // ---- Goals
+  def({
+    name: "list_goals",
+    title: "Goals and roadmap",
+    description: "Goals on the roadmap with progress (tasks done / total). horizon: now, next, later. By default only active goals.",
+    input: { status: z.enum(["active", "achieved", "dropped"]).optional(), include_closed: z.boolean().optional() },
+    readOnly: true,
+    run: async (_a, a) =>
+      (await listGoals({ status: a.status, includeClosed: a.include_closed })).map((g) => ({
+        ref: `G-${g.number}`,
+        title: g.title,
+        status: g.status,
+        horizon: g.horizon,
+        target: g.targetDate?.toISOString().slice(0, 10) ?? null,
+        progress: `${g.progress.done}/${g.progress.total} tasks done`,
+      })),
+  }),
+  def({
+    name: "get_goal",
+    title: "Get goal",
+    description: "A goal with its description and all tasks linked to it.",
+    input: { goal: goalRef },
+    readOnly: true,
+    run: async (_a, a) => {
+      const g = await getGoalDetail(a.goal);
+      const name = await namer();
+      return {
+        ref: `G-${g.number}`,
+        title: g.title,
+        description: g.description,
+        status: g.status,
+        horizon: g.horizon,
+        target: g.targetDate?.toISOString().slice(0, 10) ?? null,
+        progress: g.progress,
+        textWrittenBy: name(g.textById, g.textAgent),
+        tasks: g.tasks.map((t) => ({ ref: `T-${t.number}`, title: t.title, status: t.status })),
+      };
+    },
+  }),
+  def({
+    name: "create_goal",
+    title: "Create goal",
+    description: "Add a goal to the roadmap. horizon: now (this period), next, later.",
+    input: {
+      title: z.string().min(1),
+      description: z.string().optional(),
+      horizon: z.enum(["now", "next", "later"]).optional(),
+      target: date.optional(),
+      owner: z.string().optional().describe('"me", a user\'s name or email'),
+    },
+    run: async (actor, a) => {
+      const g = await createGoal(actor, { title: a.title, description: a.description, horizon: a.horizon, targetDate: toDate(a.target) ?? null, owner: a.owner });
+      return { ref: `G-${g.number}` };
+    },
+  }),
+  def({
+    name: "update_goal",
+    title: "Update goal",
+    description: "Change a goal's status (active, achieved, dropped), horizon, target date, owner or wording. Rewording a person's text becomes a suggestion.",
+    input: {
+      goal: goalRef,
+      status: z.enum(["active", "achieved", "dropped"]).optional(),
+      horizon: z.enum(["now", "next", "later"]).optional(),
+      target: date.nullable().optional(),
+      owner: z.string().optional(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      reason: z.string().optional(),
+    },
+    run: async (actor, a) => {
+      const { goal, suggestionId } = await updateGoal(
+        actor,
+        a.goal,
+        { status: a.status, horizon: a.horizon, targetDate: a.target === null ? null : toDate(a.target), owner: a.owner, title: a.title, description: a.description },
+        a.reason,
+      );
+      return { ref: `G-${goal.number}`, status: goal.status, horizon: goal.horizon, ...(suggestionId ? { note: "A person wrote this text; your wording was saved as a suggestion." } : {}) };
     },
   }),
 
@@ -271,6 +392,17 @@ export const TOOLS: ToolDef[] = [
     },
   }),
   def({
+    name: "toggle_checklist_item",
+    title: "Tick checklist item",
+    description: "Tick or untick a checklist item (markdown '- [ ] item') in a note block. Works on any block; ticking never counts as rewriting.",
+    input: {
+      block_id: z.string(),
+      item: z.union([z.number().int().min(0), z.string()]).describe("0-based index, or part of the item's text"),
+      checked: z.boolean().optional().describe("Omit to toggle"),
+    },
+    run: async (actor, a) => toggleChecklistItem(actor, a.block_id, a.item, a.checked),
+  }),
+  def({
     name: "rename_note",
     title: "Rename or pin note",
     description: "Change a note's title or pin it to the top.",
@@ -304,7 +436,7 @@ export const TOOLS: ToolDef[] = [
     name: "get_meeting",
     title: "Get meeting",
     description:
-      "A meeting with its notes, decisions, tasks and the agenda it covered. Set include_transcript to read the transcript (meetings are held in Estonian).",
+      "A meeting with its notes, decisions, tasks and the agenda it covered. Set include_transcript to read the transcript.",
     input: { meeting_id: z.string(), include_transcript: z.boolean().optional() },
     readOnly: true,
     run: async (_a, a) => {
@@ -348,7 +480,7 @@ export const TOOLS: ToolDef[] = [
     name: "save_meeting_outcome",
     title: "Save meeting summary",
     description:
-      "After reading a meeting transcript, save in one call: a markdown summary (added to the meeting notes), decisions (to the decision log), action items (as proposed tasks for founders to confirm), and follow-ups (to the next agenda). Write in English; keep Estonian names and terms.",
+      "After reading a meeting transcript, save in one call: a markdown summary (added to the meeting notes), decisions (to the decision log), action items (as proposed tasks for users to confirm), and follow-ups (to the next agenda). Write in the language the user is talking to you in; when working from the transcript alone, in the transcript's language. Keep names and terms as they are.",
     input: {
       meeting_id: z.string(),
       summary: z.string().min(1).describe("Markdown. Short sections; bullet points over prose."),
@@ -358,7 +490,7 @@ export const TOOLS: ToolDef[] = [
           z.object({
             title: z.string(),
             description: z.string().optional(),
-            assignee: z.string().optional().describe("Founder name or email"),
+            assignee: z.string().optional().describe("User name or email"),
             due: date.optional(),
             priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
           }),

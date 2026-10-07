@@ -44,7 +44,8 @@ export function isRevertible(a: { entityType: string; action: string; revertedAt
   return (
     (a.entityType === "task" && (a.action === "updated" || a.action === "created")) ||
     (a.entityType === "block" && ["updated", "created", "deleted"].includes(a.action)) ||
-    (a.entityType === "decision" && (a.action === "created" || a.action === "updated"))
+    (a.entityType === "decision" && (a.action === "created" || a.action === "updated")) ||
+    (a.entityType === "goal" && a.action === "updated")
   );
 }
 
@@ -90,6 +91,21 @@ export async function revertActivity(actor: Actor, activityId: string) {
           },
         });
       }
+    } else if (a.entityType === "goal") {
+      await tx.goal.update({
+        where: { id: a.entityId },
+        data: {
+          title: before.title as string,
+          description: before.description as string,
+          status: before.status as string,
+          horizon: before.horizon as string,
+          targetDate: before.targetDate ? new Date(before.targetDate as string) : null,
+          achievedAt: before.achievedAt ? new Date(before.achievedAt as string) : null,
+          ownerId: before.ownerId as string | null,
+          textById: before.textById as string | null,
+          textAgent: before.textAgent as string | null,
+        },
+      });
     } else if (a.entityType === "decision") {
       if (a.action === "created") {
         await tx.decision.delete({ where: { id: a.entityId } });

@@ -18,10 +18,11 @@ export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
   const { number } = await props.params;
   const task = await getTaskDetail(number).catch(() => null);
   if (!task) notFound();
-  const [founders, activity, suggestions] = await Promise.all([
+  const [founders, activity, suggestions, goals] = await Promise.all([
     listFounders(),
     recentActivity({ entityType: "task", entityId: task.id, limit: 50 }),
     db.suggestion.findMany({ where: { entityType: "task", entityId: task.id, status: "open" }, orderBy: { createdAt: "asc" } }),
+    db.goal.findMany({ where: { OR: [{ status: "active" }, ...(task.goalId ? [{ id: task.goalId }] : [])] }, orderBy: { number: "asc" }, select: { id: true, number: true, title: true } }),
   ]);
 
   return (
@@ -54,7 +55,7 @@ export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
       ))}
 
       <section className={`${cardCls} p-4 md:p-5`}>
-        <TaskEditor task={task} founders={founders} />
+        <TaskEditor task={task} founders={founders} goals={goals} />
       </section>
 
       <section className={`${cardCls} p-4 space-y-3`}>

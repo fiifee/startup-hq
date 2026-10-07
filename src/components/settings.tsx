@@ -221,7 +221,7 @@ export function Founders({ founders, meId, isOwner }: { founders: (Founder & { j
         >
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" aria-label="Name" className={`${inputCls} w-40`} />
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="their.gmail@gmail.com" aria-label="Email" className={`${inputCls} flex-1 min-w-[220px]`} />
-          <button disabled={pending || !email} className={btnPrimary}>Add founder</button>
+          <button disabled={pending || !email} className={btnPrimary}>Add user</button>
         </form>
       )}
     </div>
@@ -262,7 +262,7 @@ export function DigestToggle({ isMine, hasKey, otherName }: { isMine: boolean; h
   return (
     <div className="space-y-2">
       <p className="text-sm text-ink-2">
-        {isMine ? "Your key writes the Monday summary." : otherName ? `${otherName}'s key writes the Monday summary.` : "No key chosen: the Monday summary lists facts without an AI-written overview."}
+        {isMine ? "Your key writes the Monday summary and updates the company brief." : otherName ? `${otherName}'s key writes the Monday summary.` : "No key chosen: the Monday summary lists facts without an AI-written overview."}
       </p>
       <button disabled={pending || (!hasKey && !isMine)} onClick={() => run(() => setDigestUserAction(!isMine))} className={btnSecondary}>
         {isMine ? "Stop using my key" : "Use my key for it"}

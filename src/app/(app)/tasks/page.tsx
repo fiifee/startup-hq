@@ -1,11 +1,13 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { firstName } from "@/components/people";
+import { TaskBoard } from "@/components/task-board";
 import { ConfirmAll, QuickAddTask, TaskList } from "@/components/tasks";
 import { cardCls, h1Cls, STATUS_META } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listFounders } from "@/lib/services/people";
+import { daysAgo } from "@/lib/view";
 
 export const metadata = { title: "Tasks" };
 
@@ -17,13 +19,18 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
   const who = typeof sp.who === "string" ? sp.who : "all";
   const view = (typeof sp.view === "string" && sp.view in VIEWS ? sp.view : "open") as keyof typeof VIEWS;
   const q = typeof sp.q === "string" ? sp.q : "";
+  const layout = sp.layout === "board" ? "board" : "list";
   const founders = await listFounders();
 
-  const where: Prisma.TaskWhereInput = { status: { in: [...VIEWS[view]] } };
+  const monthAgo = daysAgo(30);
+  const where: Prisma.TaskWhereInput =
+    layout === "board"
+      ? { OR: [{ status: { in: ["proposed", "todo", "doing", "blocked"] } }, { status: "done", completedAt: { gte: monthAgo } }] }
+      : { status: { in: [...VIEWS[view]] } };
   if (who === "me") where.assigneeId = user.id;
   else if (who === "none") where.assigneeId = null;
   else if (who !== "all") where.assigneeId = who;
-  if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }];
+  if (q) where.AND = [{ OR: [{ title: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }] }];
 
   const tasks = await db.task.findMany({
     where,
@@ -32,10 +39,11 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
         ? [{ completedAt: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }]
         : [{ dueDate: { sort: "asc", nulls: "last" } }, { number: "desc" }],
     take: 300,
+    include: { goal: { select: { number: true, title: true } } },
   });
 
   const link = (patch: Record<string, string>) => {
-    const p = new URLSearchParams({ who, view, ...(q ? { q } : {}), ...patch });
+    const p = new URLSearchParams({ who, view, layout, ...(q ? { q } : {}), ...patch });
     return `/tasks?${p}`;
   };
   const chip = (active: boolean) =>
@@ -45,7 +53,16 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
-      <h1 className={h1Cls}>Tasks</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className={h1Cls}>Tasks</h1>
+        <div className="flex gap-1 p-1 rounded-lg bg-sunken" aria-label="Layout">
+          {(["list", "board"] as const).map((l) => (
+            <Link key={l} href={link({ layout: l })} aria-current={layout === l} className={`h-8 px-3 rounded-md text-sm inline-flex items-center ${layout === l ? "bg-surface shadow-sm font-medium" : "text-ink-2 hover:text-ink"}`}>
+              {l === "list" ? "List" : "Board"}
+            </Link>
+          ))}
+        </div>
+      </div>
       <div className="flex flex-wrap gap-2" aria-label="Whose tasks">
         <Link href={link({ who: "all" })} className={chip(who === "all")}>Everyone</Link>
         {founders.map((f) => (
@@ -60,7 +77,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
         <Link href={link({ who: "none" })} className={chip(who === "none")}>Unassigned</Link>
       </div>
       <div className="flex flex-wrap items-center gap-2 justify-between">
-        <div className="flex gap-1 p-1 rounded-lg bg-sunken" role="tablist">
+        <div className={`flex gap-1 p-1 rounded-lg bg-sunken ${layout === "board" ? "invisible" : ""}`} role="tablist">
           {(["open", "proposed", "done"] as const).map((v) => (
             <Link
               key={v}
@@ -78,17 +95,20 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
         <form className="flex gap-2">
           <input type="hidden" name="who" value={who} />
           <input type="hidden" name="view" value={view} />
+          <input type="hidden" name="layout" value={layout} />
           <input name="q" defaultValue={q} placeholder="Filter…" aria-label="Filter tasks" className="h-9 px-3 rounded-md border border-line bg-surface text-sm w-48 focus:outline-none focus:border-accent" />
         </form>
       </div>
 
-      {view !== "done" && (
+      {(view !== "done" || layout === "board") && (
         <div className={`${cardCls} p-3`}>
           <QuickAddTask founders={founders} me={who !== "all" && who !== "me" && who !== "none" ? who : user.id} />
         </div>
       )}
 
-      {view === "open" ? (
+      {layout === "board" ? (
+        <TaskBoard tasks={tasks} founders={founders} />
+      ) : view === "open" ? (
         VIEWS.open.map((status) => {
           const group = tasks.filter((t) => t.status === status);
           if (!group.length && status !== "todo") return null;

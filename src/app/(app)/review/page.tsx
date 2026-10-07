@@ -50,13 +50,28 @@ export default async function ReviewPage() {
               />
             );
           }
+          if (s.goal) {
+            return (
+              <SuggestionCard
+                key={s.id}
+                founders={founders}
+                suggestion={s}
+                context={{ label: `G-${s.goal.number}`, href: `/goals/${s.goal.number}` }}
+                changes={Object.entries(p).map(([field, after]) => ({
+                  label: field === "title" ? "Goal" : "Description",
+                  before: field === "title" ? s.goal!.title : s.goal!.description,
+                  after: String(after),
+                }))}
+              />
+            );
+          }
           if (s.block) {
             return (
               <SuggestionCard
                 key={s.id}
                 founders={founders}
                 suggestion={s}
-                context={{ label: s.block.note.title, href: `/notes/${s.block.note.id}` }}
+                context={{ label: s.block.note.title, href: s.block.note.kind === "brief" ? "/brief" : `/notes/${s.block.note.id}` }}
                 changes={[{ label: "Paragraph", before: s.block.content, after: p.delete ? null : String(p.content ?? "") }]}
               />
             );

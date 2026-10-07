@@ -19,6 +19,7 @@ export type TaskLite = {
   createdById: string | null;
   createdAgent: string | null;
   tags: string[];
+  goal?: { number: number; title: string } | null;
 };
 
 export function StatusSelect({ task, compact = false }: { task: Pick<TaskLite, "number" | "status">; compact?: boolean }) {
@@ -56,6 +57,7 @@ export function TaskRow({ task, founders, showConfirm = true }: { task: TaskLite
           {task.createdAgent && <Byline founders={founders} byId={task.createdById} agent={task.createdAgent} size="xs" />}
           {(task.priority === "high" || task.priority === "urgent") && <span className={pr.cls}>{pr.label}</span>}
           {due && <span className={due.tone === "late" ? "text-danger font-medium" : due.tone === "soon" ? "text-warn" : "text-ink-2"}>{due.text}</span>}
+          {task.goal && <Link href={`/goals/${task.goal.number}`} className="text-ink-2 hover:underline truncate max-w-[220px]">◎ {task.goal.title}</Link>}
           {task.tags.map((t) => <span key={t} className="text-ink-3">#{t}</span>)}
         </div>
       </div>
@@ -93,7 +95,7 @@ export function ConfirmAll({ refs }: { refs: string[] }) {
   );
 }
 
-export function QuickAddTask({ founders, me, meetingId }: { founders: Founder[]; me: string; meetingId?: string }) {
+export function QuickAddTask({ founders, me, meetingId, goal }: { founders: Founder[]; me: string; meetingId?: string; goal?: string }) {
   const { pending, run } = useAction();
   const [title, setTitle] = useState("");
   const [assignee, setAssignee] = useState(me);
@@ -104,7 +106,7 @@ export function QuickAddTask({ founders, me, meetingId }: { founders: Founder[];
         e.preventDefault();
         if (!title.trim()) return;
         run(
-          () => createTaskAction({ title, assignee: assignee || null, due: due || null, meetingId }),
+          () => createTaskAction({ title, assignee: assignee || null, due: due || null, meetingId, goal }),
           undefined,
           () => {
             setTitle("");

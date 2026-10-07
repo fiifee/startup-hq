@@ -18,6 +18,7 @@ export default async function NotePage(props: PageProps<"/notes/[id]">) {
   const note = await getNote(id).catch(() => null);
   if (!note) notFound();
   if (note.meeting) redirect(`/meetings/${note.meeting.id}`);
+  if (note.kind === "brief") redirect("/brief");
   const blockIds = note.blocks.map((b) => b.id);
   const [founders, suggestions, links, activity] = await Promise.all([
     listFounders(),

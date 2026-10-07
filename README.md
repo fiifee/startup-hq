@@ -1,8 +1,10 @@
 # Startup HQ
 
-One workspace for the founders: tasks, meeting notes, a decision log, the next
-meeting's agenda, weekly summaries and the shared Google Drive folder, built so that
-each founder's own AI (Claude, ChatGPT, Gemini, Hermes) can run almost all of it.
+One workspace for a small startup team: a living company brief, goals and roadmap,
+tasks (list and drag-and-drop board), meeting notes with checklists, a decision log, the
+next meeting's agenda, weekly summaries and the shared Google Drive folder, built so that
+each user's own AI (Claude, ChatGPT, Gemini, DeepSeek, Hermes) can run almost all of it.
+Menus are English; AIs write in whatever language the user writes to them in.
 
 - **AI works as you, on your subscription.** The app is an MCP server with OAuth at
   `/api/mcp`. Each founder connects their own Claude / ChatGPT / Gemini, so nobody
@@ -14,7 +16,10 @@ each founder's own AI (Claude, ChatGPT, Gemini, Hermes) can run almost all of it
   log and can be undone.
 - **Meetings.** Paste the (Estonian) transcript; your AI writes the summary, decisions,
   proposed action items and follow-ups for the next agenda.
-- **In-app assistant** (⌘J) and "Summarise with my AI" run on the founder's own API key.
+- **Company brief.** A story people and AIs keep up to date, next to a live "right now"
+  computed from goals, tasks and decisions. It shows how many changes happened since the
+  story was last updated; the Monday cron refreshes it with the volunteered key.
+- **In-app assistant** (⌘J / Ctrl+J) and "Summarise with my AI" run on the founder's own API key.
 
 ## Stack
 

@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { ActivityFeed } from "@/components/activity";
+import { Markdown } from "@/components/markdown";
 import { Avatar, firstName } from "@/components/people";
 import { ConfirmAll, QuickAddTask, TaskList } from "@/components/tasks";
 import { cardCls, h1Cls, h2Cls } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { recentActivity } from "@/lib/services/activity";
+import { briefStaleness, getBrief } from "@/lib/services/brief";
 import { listFounders } from "@/lib/services/people";
 import { feedItems } from "@/lib/view";
 
 export default async function Home() {
   const user = await requireUser();
-  const [founders, mine, proposed, suggestions, activity, openByPerson, agendaCount, lastMeeting] = await Promise.all([
+  const brief = await getBrief();
+  const [founders, mine, proposed, suggestions, activity, openByPerson, agendaCount, lastMeeting, staleness] = await Promise.all([
     listFounders(),
     db.task.findMany({ where: { assigneeId: user.id, status: { in: ["todo", "doing", "blocked"] } }, orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { number: "desc" }], take: 30 }),
     db.task.findMany({ where: { status: "proposed" }, orderBy: { number: "asc" } }),
@@ -20,6 +23,7 @@ export default async function Home() {
     db.task.groupBy({ by: ["assigneeId", "status"], _count: true, where: { status: { in: ["todo", "doing", "blocked"] } } }),
     db.agendaItem.count({ where: { meetingId: null, done: false } }),
     db.meeting.findFirst({ orderBy: { date: "desc" } }),
+    briefStaleness(brief.id),
   ]);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -34,6 +38,26 @@ export default async function Home() {
           {agendaCount > 0 && <Link href="/agenda" className="underline">{agendaCount} topic{agendaCount === 1 ? "" : "s"} for the next meeting.</Link>}
         </p>
       </header>
+
+      <section className={`${cardCls} overflow-hidden`}>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
+          <h2 className={h2Cls}>Company brief</h2>
+          <div className="flex items-center gap-3 text-sm">
+            {staleness.changes.length > 0 && <span className="text-warn">{staleness.changes.length} change{staleness.changes.length === 1 ? "" : "s"} since last update</span>}
+            <Link href="/brief" className="text-ink-2 hover:text-ink">Open and edit →</Link>
+          </div>
+        </div>
+        {brief.blocks.length ? (
+          <Link href="/brief" className="block px-4 py-3 max-h-48 overflow-hidden relative hover:bg-sunken/50">
+            <Markdown className="text-sm">{brief.blocks.slice(0, 4).map((b) => b.content).join("\n\n")}</Markdown>
+            <span className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface to-transparent" />
+          </Link>
+        ) : (
+          <p className="px-4 py-3 text-sm text-ink-2">
+            Empty so far. <Link href="/brief" className="underline">Write what you are building</Link>, or let your AI draft it. Every connected AI reads it first.
+          </p>
+        )}
+      </section>
 
       {(proposed.length > 0 || suggestions > 0) && (
         <section className={`${cardCls} border-dashed`}>
@@ -103,7 +127,7 @@ export default async function Home() {
             <Link href="/meetings/new" className="inline-block text-sm underline">Add a meeting transcript</Link>
           </section>
           <section className="text-xs text-ink-3 px-1 space-y-1">
-            <p>Colours show who did what. A tinted row with ✦ was written by that founder&apos;s AI.</p>
+            <p>Colours show who did what. A tinted row with ✦ was written by that user&apos;s AI.</p>
           </section>
         </aside>
       </div>

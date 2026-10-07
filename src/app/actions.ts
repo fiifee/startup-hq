@@ -1,7 +1,7 @@
 "use server";
 
 /**
- * Everything a founder does by hand in the UI. Each action runs as that founder
+ * Everything a user does by hand in the UI. Each action runs as that user
  * (no agent), through the same services the AI uses.
  */
 import { revalidatePath } from "next/cache";
@@ -15,11 +15,13 @@ import { disconnectDrive, setDriveFolder } from "@/lib/google";
 import { PROVIDERS, type Provider } from "@/lib/llm";
 import { processMeetingWithKey } from "@/lib/process-meeting";
 import { revertActivity } from "@/lib/services/activity";
+import { markBriefReviewed, refreshBriefWithKey } from "@/lib/services/brief";
+import { createGoal, updateGoal, type GoalPatch } from "@/lib/services/goals";
 import { addAgendaItem, removeAgendaItem, setAgendaItemDone } from "@/lib/services/agenda";
 import { recordDecision, updateDecision } from "@/lib/services/decisions";
 import { fileMeta, linkFile, unlinkFile } from "@/lib/services/drive";
 import { createMeeting, updateMeeting } from "@/lib/services/meetings";
-import { appendToNote, createNote, deleteBlock, editBlock, moveBlock, updateNote } from "@/lib/services/notes";
+import { appendToNote, createNote, deleteBlock, editBlock, moveBlock, toggleChecklistItem, updateNote } from "@/lib/services/notes";
 import { resolveSuggestion } from "@/lib/services/suggestions";
 import { addTaskComment, createTask, deleteTask, updateTask, type TaskPatch } from "@/lib/services/tasks";
 import { generateWeeklySummary } from "@/lib/services/weekly";
@@ -48,7 +50,7 @@ const dateOrNull = (s: string | null | undefined) => (s ? new Date(s) : null);
 
 // ---- Tasks
 
-export async function createTaskAction(input: { title: string; description?: string; assignee?: string | null; due?: string | null; priority?: string; status?: string; meetingId?: string | null }) {
+export async function createTaskAction(input: { title: string; description?: string; assignee?: string | null; due?: string | null; priority?: string; status?: string; meetingId?: string | null; goal?: string | null }) {
   const { actor } = await me();
   return attempt(async () => {
     const t = await createTask(actor, { ...input, dueDate: dateOrNull(input.due), assignee: input.assignee ?? null });
@@ -76,7 +78,42 @@ export async function commentAction(ref: string, body: string) {
   return attempt(() => addTaskComment(actor, ref, body).then(() => undefined));
 }
 
+// ---- Goals
+
+export async function createGoalAction(input: { title: string; horizon?: string; target?: string | null; owner?: string | null }) {
+  const { actor } = await me();
+  return attempt(async () => {
+    const g = await createGoal(actor, { title: input.title, horizon: input.horizon, targetDate: dateOrNull(input.target), owner: input.owner ?? null });
+    return { number: g.number };
+  });
+}
+
+export async function updateGoalAction(ref: string, patch: Omit<GoalPatch, "targetDate"> & { target?: string | null }) {
+  const { actor } = await me();
+  const { target, ...rest } = patch;
+  return attempt(async () => {
+    await updateGoal(actor, ref, { ...rest, ...(target !== undefined ? { targetDate: dateOrNull(target) } : {}) });
+  });
+}
+
+// ---- Company brief
+
+export async function refreshBriefAction() {
+  const { user } = await me();
+  return attempt(() => refreshBriefWithKey(user.id));
+}
+
+export async function briefReviewedAction() {
+  await me();
+  return attempt(() => markBriefReviewed());
+}
+
 // ---- Notes
+
+export async function toggleChecklistAction(blockId: string, index: number) {
+  const { actor } = await me();
+  return attempt(() => toggleChecklistItem(actor, blockId, index).then(() => undefined));
+}
 
 export async function createNoteAction(formData: FormData) {
   const { actor } = await me();

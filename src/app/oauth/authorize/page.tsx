@@ -51,7 +51,7 @@ export default async function AuthorizePage(props: PageProps<"/oauth/authorize">
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">Let {client.name} work as you?</h1>
         <ul className="text-sm text-ink-2 space-y-1.5 list-disc pl-5">
-          <li>It can read and change tasks, notes, meetings, decisions and the agenda, and read the shared Drive folder.</li>
+          <li>It can read and change tasks, notes, meetings, decisions and the agenda, and read the shared Drive folder and the company brief.</li>
           <li>Everything it writes is marked as <strong style={{ color: user.color }}>{first}&apos;s {suggested}</strong>, in your colour.</li>
           <li>It cannot overwrite what a person wrote; those edits wait for approval.</li>
           <li>You can disconnect it any time in Settings.</li>

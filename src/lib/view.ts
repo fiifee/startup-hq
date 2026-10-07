@@ -12,3 +12,8 @@ export function feedItems(rows: { id: string; summary: string; byId: string | nu
     revertible: isRevertible(a),
   }));
 }
+
+/** A moment `days` ago, for date filters in server components. */
+export function daysAgo(days: number) {
+  return new Date(Date.now() - days * 86_400_000);
+}

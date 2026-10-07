@@ -53,7 +53,7 @@ export async function generateWeeklySummary(userId: string | null, triggeredBy?:
   if (m) {
     const { text } = await generateText({
       model: m.model,
-      system: "You write a weekly update for three startup co-founders. Be brief and concrete: 3-6 sentences on progress, what is stuck, and what needs a decision. No praise, no filler. English.",
+      system: "You write a weekly update for a three-person startup team. Be brief and concrete: 3-6 sentences on progress, what is stuck, and what needs a decision. No praise, no filler. Write in the language most of the task and decision titles are in.",
       prompt: facts.markdown,
     });
     narrative = text.trim();

@@ -18,13 +18,16 @@ type Task = {
   tags: string[];
   textById: string | null;
   textAgent: string | null;
+  goalId: string | null;
 };
 
 const ymd = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 
-export function TaskEditor({ task, founders }: { task: Task; founders: Founder[] }) {
+export function TaskEditor({ task, founders, goals }: { task: Task; founders: Founder[]; goals: { id: string; number: number; title: string }[] }) {
   const { pending, run } = useAction();
+  const goalNumber = (id: string | null) => goals.find((g) => g.id === id)?.number.toString() ?? "";
   const [f, setF] = useState({
+    goal: goalNumber(task.goalId),
     title: task.title,
     description: task.description,
     status: task.status,
@@ -34,6 +37,7 @@ export function TaskEditor({ task, founders }: { task: Task; founders: Founder[]
     tags: task.tags.join(", "),
   });
   const dirty =
+    f.goal !== goalNumber(task.goalId) ||
     f.title !== task.title ||
     f.description !== task.description ||
     f.status !== task.status ||
@@ -57,6 +61,7 @@ export function TaskEditor({ task, founders }: { task: Task; founders: Founder[]
               assignee: f.assignee || "none",
               due: f.due || null,
               tags: f.tags.split(",").map((t) => t.trim()).filter(Boolean),
+              goal: f.goal || null,
             }),
           "Saved",
         );
@@ -101,9 +106,18 @@ export function TaskEditor({ task, founders }: { task: Task; founders: Founder[]
         </div>
         <textarea id="description" value={f.description} onChange={set("description")} rows={6} placeholder="Details, links, context. Markdown works." className={textareaCls} />
       </div>
-      <div>
-        <label htmlFor="tags" className={labelCls}>Tags</label>
-        <input id="tags" value={f.tags} onChange={set("tags")} placeholder="fundraising, legal" className={inputCls} />
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="goal" className={labelCls}>Goal</label>
+          <select id="goal" value={f.goal} onChange={set("goal")} className={`${selectCls} w-full`}>
+            <option value="">No goal</option>
+            {goals.map((g) => <option key={g.id} value={g.number}>G-{g.number} {g.title}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="tags" className={labelCls}>Tags</label>
+          <input id="tags" value={f.tags} onChange={set("tags")} placeholder="fundraising, legal" className={inputCls} />
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <button disabled={!dirty || pending} className={btnPrimary}>Save</button>

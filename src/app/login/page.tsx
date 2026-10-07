@@ -14,7 +14,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
       <div className="w-full max-w-sm space-y-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Startup HQ</h1>
-          <p className="text-ink-2 mt-1">Tasks, meetings and decisions for the founders, run together with your AI.</p>
+          <p className="text-ink-2 mt-1">Tasks, meetings and decisions for the team, run together with your AI.</p>
         </div>
         {error && <p role="alert" className="text-sm text-danger bg-danger-soft rounded-md px-3 py-2">{error}</p>}
         <a
@@ -29,7 +29,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
           </svg>
           Sign in with Google
         </a>
-        <p className="text-sm text-ink-3">Only founders added by the owner can sign in.</p>
+        <p className="text-sm text-ink-3">Only users added by the owner can sign in.</p>
         {dev && (
           <a href="/api/auth/dev" className="block text-center text-sm text-ink-2 underline">Development: sign in as the owner</a>
         )}

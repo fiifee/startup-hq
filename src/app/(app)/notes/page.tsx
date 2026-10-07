@@ -47,7 +47,7 @@ export default async function NotesPage(props: PageProps<"/notes">) {
         {notes.length === 0 && <li className="px-4 py-6 text-sm text-ink-3">No notes yet.</li>}
         {notes.map((n) => (
           <li key={n.id}>
-            <Link href={n.meeting ? `/meetings/${n.meeting.id}` : `/notes/${n.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-sunken">
+            <Link href={n.kind === "brief" ? "/brief" : n.meeting ? `/meetings/${n.meeting.id}` : `/notes/${n.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-sunken">
               {n.pinned && <Pin className="w-3.5 h-3.5 text-ink-3" aria-label="Pinned" />}
               <span className="flex-1 min-w-0">
                 <span className="block truncate font-medium">{n.title}</span>

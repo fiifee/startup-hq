@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
-import { appendBlockAction, deleteBlockAction, editBlockAction, moveBlockAction } from "@/app/actions";
+import { ArrowDown, ArrowUp, ListChecks, Trash2 } from "lucide-react";
+import { appendBlockAction, deleteBlockAction, editBlockAction, moveBlockAction, toggleChecklistAction } from "@/app/actions";
 import { Markdown } from "./markdown";
 import { Byline, type Founder } from "./people";
 import { SuggestionCard } from "./suggestions";
@@ -13,14 +13,45 @@ import { useAction } from "./use-action";
 export type BlockView = { id: string; content: string; byId: string | null; agent: string | null; updatedAt: Date };
 export type BlockSuggestion = { id: string; entityId: string; byId: string | null; agent: string | null; reason: string; createdAt: Date; proposed: { content?: string; delete?: boolean } };
 
-function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+/**
+ * Enter on a list or checklist line starts the next item; Enter on an empty item
+ * ends the list. Returns true when it handled the key.
+ */
+function continueList(e: React.KeyboardEvent<HTMLTextAreaElement>, setValue: (v: string) => void) {
+  if (e.key !== "Enter" || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return false;
+  const el = e.currentTarget;
+  const { value, selectionStart: pos } = el;
+  const lineStart = value.lastIndexOf("\n", pos - 1) + 1;
+  const line = value.slice(lineStart, pos);
+  const m = line.match(/^(\s*)([-*+]|\d+[.)])\s+(\[[ xX]\]\s+)?(.*)$/);
+  if (!m) return false;
+  e.preventDefault();
+  const [, indent, bullet, box, text] = m;
+  let next: string;
+  let caret: number;
+  if (!text.trim()) {
+    next = value.slice(0, lineStart) + value.slice(pos);
+    caret = lineStart;
+  } else {
+    const num = bullet.match(/^(\d+)([.)])$/);
+    const marker = `${indent}${num ? `${Number(num[1]) + 1}${num[2]}` : bullet} ${box ? "[ ] " : ""}`;
+    next = `${value.slice(0, pos)}\n${marker}${value.slice(pos)}`;
+    caret = pos + 1 + marker.length;
+  }
+  setValue(next);
+  requestAnimationFrame(() => el.setSelectionRange(caret, caret));
+  return true;
+}
+
+function AutoTextarea({ inputRef, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { inputRef?: React.RefObject<HTMLTextAreaElement | null> }) {
+  const own = useRef<HTMLTextAreaElement>(null);
+  const ref = inputRef ?? own;
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight + 2}px`;
-  }, [props.value]);
+  }, [ref, props.value]);
   return <textarea ref={ref} {...props} />;
 }
 
@@ -54,6 +85,7 @@ function Block({ block, founders, first, last }: { block: BlockView; founders: F
           onChange={(e) => setDraft(e.target.value)}
           onBlur={save}
           onKeyDown={(e) => {
+            if (continueList(e, setDraft)) return;
             if (e.key === "Escape") {
               setDraft(block.content);
               setEditing(false);
@@ -67,7 +99,7 @@ function Block({ block, founders, first, last }: { block: BlockView; founders: F
           role="button"
           tabIndex={0}
           onClick={(e) => {
-            if ((e.target as HTMLElement).closest("a")) return;
+            if ((e.target as HTMLElement).closest("a, input")) return;
             setDraft(block.content);
             setEditing(true);
           }}
@@ -81,7 +113,7 @@ function Block({ block, founders, first, last }: { block: BlockView; founders: F
           className="cursor-text min-h-6"
           title={block.agent ? "Written by AI. Click to edit; it becomes yours." : "Click to edit"}
         >
-          <Markdown>{block.content}</Markdown>
+          <Markdown onToggle={(i) => run(() => toggleChecklistAction(block.id, i))}>{block.content}</Markdown>
         </div>
       )}
     </div>
@@ -97,6 +129,7 @@ export function BlockEditor({ noteId, blocks, suggestions, founders, placeholder
   const { pending, run } = useAction();
   const [draft, setDraft] = useState("");
   const addHint = useShortcut("Enter");
+  const composer = useRef<HTMLTextAreaElement>(null);
   const add = () => {
     if (!draft.trim()) return;
     run(() => appendBlockAction(noteId, draft), undefined, () => setDraft(""));
@@ -120,9 +153,11 @@ export function BlockEditor({ noteId, blocks, suggestions, founders, placeholder
       ))}
       <div className="pt-3">
         <AutoTextarea
+          inputRef={composer}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
+            if (continueList(e, setDraft)) return;
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) add();
           }}
           rows={3}
@@ -130,12 +165,24 @@ export function BlockEditor({ noteId, blocks, suggestions, founders, placeholder
           aria-label="New text"
           className="w-full resize-none rounded-md border border-dashed border-line-strong bg-transparent px-3 py-2 text-[15px] leading-relaxed placeholder:text-ink-3 focus:outline-none focus:border-accent focus:bg-surface"
         />
-        {draft.trim() && (
-          <div className="flex items-center gap-2 mt-2">
-            <button onClick={add} disabled={pending} className={btnPrimary}>Add</button>
-            {addHint && <span className="text-xs text-ink-3">{addHint}</span>}
-          </div>
-        )}
+        <div className="flex items-center gap-2 mt-2">
+          {draft.trim() && <button onClick={add} disabled={pending} className={btnPrimary}>Add</button>}
+          <button
+            type="button"
+            onClick={() => {
+              const next = draft.trim() ? `${draft.replace(/\s+$/, "")}\n- [ ] ` : "- [ ] ";
+              setDraft(next);
+              requestAnimationFrame(() => {
+                composer.current?.focus();
+                composer.current?.setSelectionRange(next.length, next.length);
+              });
+            }}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-sm text-ink-2 hover:text-ink hover:bg-sunken"
+          >
+            <ListChecks className="w-4 h-4" /> Checklist item
+          </button>
+          {draft.trim() && addHint && <span className="text-xs text-ink-3">{addHint} to add</span>}
+        </div>
       </div>
     </div>
   );

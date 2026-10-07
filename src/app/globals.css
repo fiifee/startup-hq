@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Ink on paper. Colour carries meaning: each founder has one, and anything an AI
+ * wrote is tinted in the colour of the founder whose AI it was.
+ */
+@theme inline {
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  color-scheme: light;
+  --canvas: #f6f5f1;
+  --surface: #ffffff;
+  --sunken: #efede7;
+  --ink: #1c1b19;
+  --ink-2: #57544e;
+  --ink-3: #7b776f;
+  --line: #e2dfd7;
+  --line-strong: #c9c5bb;
+  --accent: #2c6e52;
+  --accent-soft: #e4efe8;
+  --danger: #b3261e;
+  --danger-soft: #f8e5e3;
+  --warn: #8a5a00;
+  --warn-soft: #fbf0d9;
+  --ai-tint: 9%;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
+    --canvas: #161513;
+    --surface: #1e1d1a;
+    --sunken: #121110;
+    --ink: #edebe5;
+    --ink-2: #b2aea4;
+    --ink-3: #8c887f;
+    --line: #2f2d29;
+    --line-strong: #47443e;
+    --accent: #84c2a2;
+    --accent-soft: #1f3329;
+    --danger: #f0978c;
+    --danger-soft: #3a1f1c;
+    --warn: #e8bd6a;
+    --warn-soft: #362a12;
+    --ai-tint: 16%;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Text an AI wrote: tinted in its founder's colour (set as --who on the element). */
+.ai-tint {
+  background: color-mix(in srgb, var(--who) var(--ai-tint), transparent);
+  border-left: 3px solid var(--who);
+}
+.human-mark {
+  border-left: 3px solid transparent;
+}
+.human-mark:hover {
+  border-left-color: color-mix(in srgb, var(--who) 45%, transparent);
+}
+
+.prose-hq { overflow-wrap: anywhere; }
+.prose-hq h1 { font-size: 1.35rem; font-weight: 600; margin: 0.2rem 0; }
+.prose-hq h2 { font-size: 1.15rem; font-weight: 600; margin: 0.2rem 0; }
+.prose-hq h3 { font-size: 1rem; font-weight: 600; margin: 0.2rem 0; }
+.prose-hq p { margin: 0; }
+.prose-hq ul { list-style: disc; padding-left: 1.3rem; }
+.prose-hq ol { list-style: decimal; padding-left: 1.3rem; }
+.prose-hq li { margin: 0.1rem 0; }
+.prose-hq a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose-hq code { font-family: var(--font-mono); font-size: 0.9em; background: var(--sunken); padding: 0.05rem 0.3rem; border-radius: 4px; }
+.prose-hq pre { background: var(--sunken); padding: 0.6rem 0.8rem; border-radius: 6px; overflow-x: auto; }
+.prose-hq pre code { background: none; padding: 0; }
+.prose-hq blockquote { border-left: 3px solid var(--line-strong); padding-left: 0.8rem; color: var(--ink-2); }
+.prose-hq table { border-collapse: collapse; }
+.prose-hq th, .prose-hq td { border: 1px solid var(--line); padding: 0.2rem 0.5rem; }
+.prose-hq input[type="checkbox"] { margin-right: 0.4rem; }
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
 }

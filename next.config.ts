@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Every page is per-user and live (founders and their AIs edit concurrently),
+  // so pages render dynamically instead of from prerendered shells.
+  cacheComponents: false,
   turbopack: {
     rules: {
       "*.css": {

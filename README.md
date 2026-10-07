@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Startup HQ
 
-## Getting Started
+One workspace for the founders: tasks, meeting notes, a decision log, the next
+meeting's agenda, weekly summaries and the shared Google Drive folder, built so that
+each founder's own AI (Claude, ChatGPT, Gemini, Hermes) can run almost all of it.
 
-First, run the development server:
+- **AI works as you, on your subscription.** The app is an MCP server with OAuth at
+  `/api/mcp`. Each founder connects their own Claude / ChatGPT / Gemini, so nobody
+  spends someone else's credits. Hermes and scripts use personal tokens.
+- **Everything AI does is marked.** Every row stores the founder and the agent
+  ("Raiko's Claude") and is tinted in that founder's colour.
+- **AI never overwrites a person.** AI edits to human-written text become suggestions a
+  person accepts. Inferred tasks arrive as *proposed*. Every change is in the activity
+  log and can be undone.
+- **Meetings.** Paste the (Estonian) transcript; your AI writes the summary, decisions,
+  proposed action items and follow-ups for the next agenda.
+- **In-app assistant** (⌘J) and "Summarise with my AI" run on the founder's own API key.
+
+## Stack
+
+Next.js 16 (App Router, server actions), Prisma 6 + Neon Postgres, AI SDK 7, Vercel
+(fra1), Vercel Cron for the Monday summary. Google sign-in and Drive use plain OAuth
+with `fetch`.
+
+| Path | What |
+|---|---|
+| `src/lib/services/*` | Domain logic. Every write takes an `Actor` (founder + agent). |
+| `src/lib/tools.ts` | The AI's capabilities, defined once; used by MCP, REST and the assistant. |
+| `src/lib/mcp.ts`, `src/app/api/mcp` | Stateless MCP (streamable HTTP, JSON responses). |
+| `src/app/api/oauth/*`, `src/app/oauth/authorize`, `.well-known/*` | OAuth 2.1 server with PKCE and dynamic client registration. |
+| `src/app/api/v1/tools/[name]` | Same tools over plain HTTP with a bearer token. |
+| `agent/hermes/startup-hq/SKILL.md` | Hermes skill. |
+
+## Environment
+
+| Variable | |
+|---|---|
+| `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | Neon (set by the Vercel integration) |
+| `APP_SECRET` | 32+ random chars; encrypts stored API keys and the Drive token |
+| `APP_URL` | Public origin, e.g. `https://startup-hq.vercel.app` |
+| `OWNER_EMAIL` | The owner's Google email; may sign in first and add the others |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth web client |
+| `CRON_SECRET` | Protects `/api/cron/weekly` |
+
+### Google OAuth client
+
+Google Cloud console → APIs & Services:
+
+1. Enable the **Google Drive API**.
+2. OAuth consent screen: External, app name "Startup HQ", add the scope
+   `.../auth/drive`, then **Publish app** (In production). In Testing mode Google expires
+   the Drive refresh token after 7 days. Unverified is fine for under 100 users; people
+   see an "unverified app" warning once.
+3. Credentials → OAuth client ID → Web application. Authorized redirect URI:
+   `https://<APP_URL host>/api/auth/google/callback` (and
+   `http://localhost:3000/api/auth/google/callback` for local dev).
+
+## Local development
 
 ```bash
+npm install
+npx prisma migrate dev
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Without Google credentials, `/api/auth/dev` signs in as `OWNER_EMAIL` (development only).

@@ -1,0 +1,14 @@
+import { isRevertible } from "./services/activity";
+
+/** Activity rows shaped for the feed component. */
+export function feedItems(rows: { id: string; summary: string; byId: string | null; agent: string | null; createdAt: Date; revertedAt: Date | null; entityType: string; action: string }[]) {
+  return rows.map((a) => ({
+    id: a.id,
+    summary: a.summary,
+    byId: a.byId,
+    agent: a.agent,
+    createdAt: a.createdAt,
+    revertedAt: a.revertedAt,
+    revertible: isRevertible(a),
+  }));
+}

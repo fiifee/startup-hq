@@ -21,7 +21,8 @@ export const cardCls = "rounded-lg border border-line bg-surface";
 export const h1Cls = "text-2xl font-semibold tracking-tight";
 export const h2Cls = "text-base font-semibold";
 
-export const FOUNDER_COLORS = ["#2c6e52", "#4a6fa5", "#b5562b", "#8a4fa3", "#b3264f", "#3f8580", "#8a6d00"];
+/** Founder colours. #1d5fa8 is Santorini blue, the blue of the Cycladic domes. */
+export const FOUNDER_COLORS = ["#2c6e52", "#1d5fa8", "#4a6fa5", "#b5562b", "#8a4fa3", "#b3264f", "#3f8580", "#8a6d00"];
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

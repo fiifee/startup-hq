@@ -1,4 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
@@ -9,6 +10,8 @@ export const PROVIDERS = {
   anthropic: { label: "Claude", company: "Anthropic", defaultModel: "claude-sonnet-5-5", keyUrl: "https://console.anthropic.com/settings/keys" },
   openai: { label: "ChatGPT", company: "OpenAI", defaultModel: "gpt-5.5", keyUrl: "https://platform.openai.com/api-keys" },
   google: { label: "Gemini", company: "Google", defaultModel: "gemini-flash-latest", keyUrl: "https://aistudio.google.com/apikey" },
+  // "deepseek-flash" is the API name for DeepSeek V4.1 Flash.
+  deepseek: { label: "DeepSeek", company: "DeepSeek", defaultModel: "deepseek-flash", keyUrl: "https://platform.deepseek.com/api_keys" },
 } as const;
 export type Provider = keyof typeof PROVIDERS;
 
@@ -25,6 +28,7 @@ export async function modelFor(userId: string, provider?: Provider): Promise<{ m
   const model =
     p === "anthropic" ? createAnthropic({ apiKey })(key.model)
     : p === "openai" ? createOpenAI({ apiKey })(key.model)
+    : p === "deepseek" ? createDeepSeek({ apiKey })(key.model)
     : createGoogleGenerativeAI({ apiKey })(key.model);
   return { model, agent: PROVIDERS[p].label, provider: p };
 }

@@ -71,6 +71,7 @@ const PROVIDER_OPTIONS = [
   { id: "anthropic", label: "Claude (Anthropic)", model: "claude-sonnet-5-5", keyUrl: "https://console.anthropic.com/settings/keys" },
   { id: "openai", label: "ChatGPT (OpenAI)", model: "gpt-5.5", keyUrl: "https://platform.openai.com/api-keys" },
   { id: "google", label: "Gemini (Google)", model: "gemini-flash-latest", keyUrl: "https://aistudio.google.com/apikey" },
+  { id: "deepseek", label: "DeepSeek V4.1 Flash", model: "deepseek-flash", keyUrl: "https://platform.deepseek.com/api_keys" },
 ] as const;
 
 export function AiKeys({ keys }: { keys: { provider: string; model: string; last4: string }[] }) {

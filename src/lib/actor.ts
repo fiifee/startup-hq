@@ -23,6 +23,7 @@ export function agentLabel(raw: string | null | undefined): string {
   if (s.includes("chatgpt") || s.includes("openai") || s.includes("gpt")) return "ChatGPT";
   if (s.includes("gemini") || s.includes("google")) return "Gemini";
   if (s.includes("hermes")) return "Hermes";
+  if (s.includes("deepseek")) return "DeepSeek";
   if (s.includes("cursor")) return "Cursor";
   const trimmed = (raw ?? "").trim().slice(0, 40);
   return trimmed || "AI";

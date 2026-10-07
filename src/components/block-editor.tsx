@@ -7,6 +7,7 @@ import { Markdown } from "./markdown";
 import { Byline, type Founder } from "./people";
 import { SuggestionCard } from "./suggestions";
 import { btnPrimary, relative } from "./ui";
+import { useShortcut } from "./shortcut";
 import { useAction } from "./use-action";
 
 export type BlockView = { id: string; content: string; byId: string | null; agent: string | null; updatedAt: Date };
@@ -95,6 +96,7 @@ function Block({ block, founders, first, last }: { block: BlockView; founders: F
 export function BlockEditor({ noteId, blocks, suggestions, founders, placeholder = "Write… Markdown works. A blank line starts a new block." }: { noteId: string; blocks: BlockView[]; suggestions: BlockSuggestion[]; founders: Founder[]; placeholder?: string }) {
   const { pending, run } = useAction();
   const [draft, setDraft] = useState("");
+  const addHint = useShortcut("Enter");
   const add = () => {
     if (!draft.trim()) return;
     run(() => appendBlockAction(noteId, draft), undefined, () => setDraft(""));
@@ -131,7 +133,7 @@ export function BlockEditor({ noteId, blocks, suggestions, founders, placeholder
         {draft.trim() && (
           <div className="flex items-center gap-2 mt-2">
             <button onClick={add} disabled={pending} className={btnPrimary}>Add</button>
-            <span className="text-xs text-ink-3">⌘ Enter</span>
+            {addHint && <span className="text-xs text-ink-3">{addHint}</span>}
           </div>
         )}
       </div>

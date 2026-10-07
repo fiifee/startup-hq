@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Send, X } from "lucide-react";
 import { AiMark } from "./people";
 import { Markdown } from "./markdown";
+import { useShortcut } from "./shortcut";
 
 type Msg = { role: "user" | "assistant"; content: string; actions?: { tool: string; ok: boolean; summary: string }[]; error?: boolean };
 
@@ -23,6 +24,7 @@ export function Assistant({ hasKey, color, firstName }: { hasKey: boolean; color
   const path = usePathname();
   const router = useRouter();
   const end = useRef<HTMLDivElement>(null);
+  const openHint = useShortcut("J");
 
   const restored = useRef(false);
 
@@ -92,7 +94,7 @@ export function Assistant({ hasKey, color, firstName }: { hasKey: boolean; color
           onClick={() => toggle(true)}
           className="fixed z-30 bottom-5 right-5 inline-flex items-center gap-2 h-11 px-4 rounded-full shadow-lg text-sm font-medium text-white cursor-pointer"
           style={{ background: color }}
-          title="Ask your AI (⌘J)"
+          title={openHint ? `Ask your AI (${openHint})` : "Ask your AI"}
         >
           <AiMark className="w-4 h-4" /> Ask AI
         </button>

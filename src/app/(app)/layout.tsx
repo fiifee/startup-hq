@@ -1,8 +1,11 @@
-import { Assistant } from "@/components/assistant";
+import { Capture } from "@/components/capture";
 import { firstName } from "@/components/people";
 import { AutoRefresh, Shell } from "@/components/shell";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+
+// Server actions here may hand work to the user's AI after responding (summaries, brief updates).
+export const maxDuration = 300;
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -15,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <Shell user={user} reviewCount={proposed + suggestions}>
       {children}
       <AutoRefresh />
-      <Assistant hasKey={keys > 0} color={user.color} firstName={firstName(user)} />
+      <Capture hasKey={keys > 0} autoAI={user.autoAI} color={user.color} firstName={firstName(user)} />
     </Shell>
   );
 }

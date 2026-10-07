@@ -2,11 +2,12 @@ import { generateText, Output } from "ai";
 import { z } from "zod";
 import { ai } from "./actor";
 import { modelFor, type Provider } from "./llm";
+import { formatInstruction, getMeetingFormat } from "./services/format";
 import { getMeeting, saveMeetingOutcome } from "./services/meetings";
 import { actorName, listFounders } from "./services/people";
 
 const outcomeSchema = z.object({
-  summary: z.string().describe("Markdown. Start with a 2-3 sentence overview, then short sections with bullet points per topic discussed."),
+  summary: z.string().describe("Markdown in the team's summary format (see instructions), bullet points over prose."),
   decisions: z.array(z.object({ title: z.string(), rationale: z.string() })).describe("Only things that were actually agreed."),
   actionItems: z.array(
     z.object({
@@ -26,7 +27,7 @@ export async function processMeetingWithKey(userId: string, meetingId: string, p
   if (!m) throw new Error("Add your own AI key in Settings first, so this runs on your credits.");
   const meeting = await getMeeting(meetingId);
   if (!meeting.transcript.trim()) throw new Error("This meeting has no transcript yet.");
-  const founders = await listFounders();
+  const [founders, format] = await Promise.all([listFounders(), getMeetingFormat()]);
 
   const { output } = await generateText({
     model: m.model,
@@ -36,6 +37,7 @@ export async function processMeetingWithKey(userId: string, meetingId: string, p
       "Be faithful to the transcript: do not invent decisions, owners or deadlines. Transcription errors are likely; infer sensibly and do not quote garbled text.",
       `Users: ${founders.map((f) => `${f.name ?? f.email} <${f.email}>`).join(", ")}.`,
       `Meeting date: ${meeting.date.toISOString().slice(0, 10)}. Resolve relative deadlines ("next Friday") against that date.`,
+      formatInstruction(format),
     ].join("\n"),
     prompt: `Meeting: ${meeting.title}\n\nTranscript:\n${meeting.transcript.slice(0, 400_000)}`,
   });

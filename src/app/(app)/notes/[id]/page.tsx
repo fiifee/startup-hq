@@ -34,7 +34,7 @@ export default async function NotePage(props: PageProps<"/notes/[id]">) {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-2 text-sm text-ink-2 flex-wrap">
-        <Link href={`/notes${note.kind !== "note" ? `?kind=${note.kind}` : ""}`} className="hover:text-ink">{note.kind === "weekly" ? "Weekly" : "Notes"}</Link>
+        <Link href={`/docs${note.kind === "weekly" ? "?kind=weekly" : ""}`} className="hover:text-ink">{note.kind === "weekly" ? "Weekly" : "Notes"}</Link>
         <span>/</span>
         <span className="inline-flex items-center gap-1.5">
           by <Byline founders={founders} byId={note.createdById} agent={note.createdAgent} size="xs" /> · {formatDate(note.createdAt)}

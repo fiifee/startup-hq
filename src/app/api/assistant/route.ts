@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   try {
     const result = await generateText({
       model: m.model,
-      system: `${MCP_INSTRUCTIONS}\nYou are talking with ${user.name ?? user.email} inside the Startup HQ web app. Today is ${new Date().toISOString().slice(0, 10)}.${body.page ? ` They are looking at ${body.page}.` : ""} Act, don't ask, when the request is clear. Reply in the language of their latest message. Answer briefly; refer to tasks as T-<n> and decisions as D-<n>.`,
+      system: `${MCP_INSTRUCTIONS}\nYou are talking with ${user.name ?? user.email} inside the Startup HQ web app. Today is ${new Date().toISOString().slice(0, 10)}.${body.page ? ` They are looking at ${body.page}.` : ""} Act, don't ask, when the request is clear: a short line is usually a task for them, a pasted transcript is a meeting (create_meeting, then save_meeting_outcome). Reply in the language of their latest message. Answer briefly; refer to tasks as T-<n> and decisions as D-<n>.`,
       messages,
       tools,
       stopWhen: isStepCount(15),

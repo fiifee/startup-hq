@@ -14,6 +14,7 @@ import { briefForAI, briefStaleness, markBriefReviewed } from "./services/brief"
 import { createGoal, getGoalDetail, listGoals, updateGoal } from "./services/goals";
 import { createMeeting, getMeeting, listMeetings, saveMeetingOutcome, updateMeeting } from "./services/meetings";
 import { appendToNote, createNote, deleteBlock, editBlock, getNote, listNotes, noteForAI, toggleChecklistItem, updateNote } from "./services/notes";
+import { getMeetingFormat } from "./services/format";
 import { workspaceOverview } from "./services/overview";
 import { actorName, listFounders } from "./services/people";
 import { searchAll } from "./services/search";
@@ -452,6 +453,7 @@ export const TOOLS: ToolDef[] = [
         decisions: m.decisions.map((d) => ({ ref: `D-${d.number}`, title: d.title, rationale: d.rationale, status: d.status })),
         tasks: m.tasks.map(taskOut),
         transcriptLength: m.transcript.length,
+        summaryFormat: await getMeetingFormat(),
         ...(a.include_transcript ? { transcript: m.transcript } : {}),
       };
     },
@@ -483,7 +485,7 @@ export const TOOLS: ToolDef[] = [
       "After reading a meeting transcript, save in one call: a markdown summary (added to the meeting notes), decisions (to the decision log), action items (as proposed tasks for users to confirm), and follow-ups (to the next agenda). Write in the language the user is talking to you in; when working from the transcript alone, in the transcript's language. Keep names and terms as they are.",
     input: {
       meeting_id: z.string(),
-      summary: z.string().min(1).describe("Markdown. Short sections; bullet points over prose."),
+      summary: z.string().min(1).describe("Markdown using the team's summary format (get_meeting → summaryFormat): exactly those sections as ## headings, in order, headings translated into your output language. Bullet points over prose."),
       decisions: z.array(z.object({ title: z.string(), rationale: z.string().optional() })).optional(),
       action_items: z
         .array(

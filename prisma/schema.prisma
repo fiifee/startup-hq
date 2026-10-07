@@ -23,6 +23,9 @@ model User {
   color     String    @default("#4a6fa5")
   isOwner   Boolean   @default(false)
   googleSub String?   @unique
+  /// Let this user's own AI key do background work: summarise new transcripts,
+  /// keep the brief current, write the Monday summary.
+  autoAI    Boolean   @default(false)
   joinedAt  DateTime? // null until the founder signs in for the first time
   createdAt DateTime  @default(now())
 

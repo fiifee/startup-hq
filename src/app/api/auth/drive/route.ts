@@ -5,5 +5,5 @@ import { startGoogle } from "@/lib/google-flow";
 export async function GET(req: Request) {
   const user = await getUser();
   if (!user?.isOwner) return Response.redirect(`${appUrl(req)}/settings?drive=forbidden`, 302);
-  return startGoogle(req, "drive", "/drive", user.email);
+  return startGoogle(req, "drive", "/docs?kind=drive", user.email);
 }

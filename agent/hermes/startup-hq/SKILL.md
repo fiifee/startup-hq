@@ -47,7 +47,8 @@ Meetings are held in Estonian on Discord; Raiko produces the transcripts.
 1. `create_meeting` with `title`, `date` (YYYY-MM-DD) and the full `transcript`.
 2. Read it back with `get_meeting` (`include_transcript: true`) if needed.
 3. `save_meeting_outcome` in one call:
-   - `summary`: markdown in the transcript's language, short sections, bullets.
+   - `summary`: markdown in the transcript's language, using exactly the sections in
+     `get_meeting` → `summaryFormat` (headings translated), bullets over prose.
    - `decisions`: only what was actually agreed, each with a one-line rationale.
    - `action_items`: imperative titles, assignee by user name/email only when someone
      clearly took it, `due` only when a date was said.

@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { BlockEditor, type BlockSuggestion } from "@/components/block-editor";
 import { BriefFreshness } from "@/components/brief";
-import { ProgressBar } from "@/components/goals";
+import { DecisionRow, NewDecision } from "@/components/decisions";
+import { NewGoal, ProgressBar, Roadmap } from "@/components/goals";
 import { firstName } from "@/components/people";
-import { cardCls, formatDate, h1Cls, h2Cls, HORIZON_META, relative } from "@/components/ui";
+import { cardCls, formatDate, h1Cls, h2Cls, relative } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { briefStaleness, briefState, getBrief } from "@/lib/services/brief";
+import { listDecisions } from "@/lib/services/decisions";
+import { listGoals } from "@/lib/services/goals";
 import { listFounders } from "@/lib/services/people";
 
 export const metadata = { title: "Company brief" };
@@ -17,13 +20,17 @@ Good sections: ## What we're building · ## For whom · ## Where we are · ## Wh
 export default async function BriefPage() {
   const user = await requireUser();
   const note = await getBrief();
-  const [founders, state, staleness, suggestions, keys] = await Promise.all([
+  const [founders, state, staleness, suggestions, keys, allGoals, decisions, decisionCount] = await Promise.all([
     listFounders(),
     briefState(),
     briefStaleness(note.id),
     db.suggestion.findMany({ where: { entityType: "block", entityId: { in: note.blocks.map((b) => b.id) }, status: "open" } }),
     db.aiKey.count({ where: { userId: user.id } }),
+    listGoals({ includeClosed: true }),
+    listDecisions({ limit: 8 }),
+    db.decision.count(),
   ]);
+  const finished = allGoals.filter((g) => g.status !== "active");
   const who = (id: string | null) => firstName(founders.find((f) => f.id === id));
 
   return (
@@ -56,17 +63,7 @@ export default async function BriefPage() {
               <span className="text-xs text-ink-3">live</span>
             </div>
             <div className="p-4 space-y-4 text-sm">
-              <div className="space-y-2.5">
-                <h3 className="text-xs font-semibold text-ink-2">Goals</h3>
-                {state.goals.length === 0 && <p className="text-ink-3"><Link href="/goals" className="underline">Add your first goal</Link></p>}
-                {state.goals.map((g) => (
-                  <div key={g.id}>
-                    <Link href={`/goals/${g.number}`} className="hover:underline">{g.title}</Link>
-                    <span className="text-xs text-ink-3"> · {HORIZON_META[g.horizon]?.label}{g.targetDate ? `, by ${formatDate(g.targetDate, false)}` : ""}</span>
-                    <ProgressBar done={g.progress.done} total={g.progress.total} color={founders.find((f) => f.id === g.ownerId)?.color} />
-                  </div>
-                ))}
-              </div>
+              {!state.doing.length && !state.blocked.length && !state.done.length && <p className="text-ink-3">Nothing in progress or recently done yet.</p>}
               {state.doing.length > 0 && (
                 <div className="space-y-1">
                   <h3 className="text-xs font-semibold text-ink-2">In progress</h3>
@@ -91,18 +88,53 @@ export default async function BriefPage() {
                   ))}
                 </div>
               )}
-              {state.decisions.length > 0 && (
-                <div className="space-y-1">
-                  <h3 className="text-xs font-semibold text-ink-2">Standing decisions</h3>
-                  {state.decisions.map((d) => (
-                    <p key={d.id} className="truncate"><span className="text-ink-3 tabular">D-{d.number}</span> {d.title}</p>
-                  ))}
-                </div>
-              )}
             </div>
           </section>
         </aside>
       </div>
+
+      <section id="roadmap" className="space-y-3 scroll-mt-6">
+        <div>
+          <h2 className={h2Cls}>Roadmap</h2>
+          <p className="text-sm text-ink-2">Goals fill up as their tasks get done. Drag a goal to re-plan it.</p>
+        </div>
+        <div className={`${cardCls} p-3`}><NewGoal founders={founders} me={user.id} /></div>
+        <Roadmap goals={state.goals} founders={founders} />
+        {finished.length > 0 && (
+          <details className={cardCls}>
+            <summary className="px-4 py-2.5 text-sm cursor-pointer">{finished.length} achieved or dropped</summary>
+            <ul className="divide-y divide-line border-t border-line">
+              {finished.map((g) => (
+                <li key={g.id}>
+                  <Link href={`/goals/${g.number}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-sunken text-sm">
+                    <span className={`flex-1 ${g.status === "dropped" ? "line-through text-ink-3" : ""}`}>{g.title}</span>
+                    <span className="w-32"><ProgressBar done={g.progress.done} total={g.progress.total} /></span>
+                    <span className={`text-xs w-28 text-right ${g.status === "achieved" ? "text-accent font-medium" : "text-ink-3"}`}>
+                      {g.status === "achieved" ? `Achieved ${g.achievedAt ? formatDate(g.achievedAt, false) : ""}` : "Dropped"}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </section>
+
+      <section id="decisions" className="space-y-3 scroll-mt-6 max-w-3xl">
+        <div>
+          <h2 className={h2Cls}>Decisions</h2>
+          <p className="text-sm text-ink-2">What we agreed and why. Meeting summaries add to this too.</p>
+        </div>
+        <div className={`${cardCls} p-3`}><NewDecision /></div>
+        {decisions.length > 0 && (
+          <ul className={`${cardCls} divide-y divide-line`}>
+            {decisions.map((d) => <DecisionRow key={d.id} decision={d} founders={founders} />)}
+          </ul>
+        )}
+        {decisionCount > decisions.length && (
+          <Link href="/decisions" className="inline-block text-sm underline">All {decisionCount} decisions, with search →</Link>
+        )}
+      </section>
     </div>
   );
 }

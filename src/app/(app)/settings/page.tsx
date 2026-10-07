@@ -1,8 +1,9 @@
-import { AiKeys, ApiTokens, CodeBlock, DigestToggle, DriveDisconnect, FolderPicker, Founders, Grants, ProfileForm } from "@/components/settings";
+import { AiKeys, ApiTokens, AutoAIToggle, CodeBlock, DriveDisconnect, FolderPicker, Founders, Grants, ProfileForm, SummaryFormat } from "@/components/settings";
 import { btnPrimary, btnSecondary, cardCls, h1Cls, h2Cls } from "@/components/ui";
 import { requestOrigin, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { driveStatus } from "@/lib/google";
+import { getMeetingFormat } from "@/lib/services/format";
 import { listFounders } from "@/lib/services/people";
 
 export const metadata = { title: "Settings" };
@@ -24,15 +25,14 @@ export default async function SettingsPage(props: PageProps<"/settings">) {
   const sp = await props.searchParams;
   const base = await requestOrigin();
   const mcpUrl = `${base}/api/mcp`;
-  const [founders, keys, tokens, grants, drive, digest] = await Promise.all([
+  const [founders, keys, tokens, grants, drive, format] = await Promise.all([
     listFounders(),
     db.aiKey.findMany({ where: { userId: user.id }, select: { provider: true, model: true, last4: true } }),
     db.apiToken.findMany({ where: { userId: user.id, revokedAt: null }, orderBy: { createdAt: "desc" } }),
     db.oAuthGrant.findMany({ where: { userId: user.id, revokedAt: null }, include: { client: true }, orderBy: { createdAt: "desc" } }),
     driveStatus(),
-    db.setting.findUnique({ where: { key: "digest.userId" } }),
+    getMeetingFormat(),
   ]);
-  const digestOwner = founders.find((f) => f.id === digest?.value);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -83,12 +83,16 @@ export default async function SettingsPage(props: PageProps<"/settings">) {
         <ApiTokens tokens={tokens} mcpUrl={mcpUrl} />
       </Section>
 
-      <Section id="ai-keys" title="Your AI keys" intro={<p>Used by the in-app <strong>Ask AI</strong> button and “Summarise with my AI”. Only your requests use your key.</p>}>
+      <Section id="ai-keys" title="Your AI keys" intro={<p>Used by <strong>Capture</strong> (⌘K / Ctrl+K), “Summarise with my AI” and background work. Only your requests use your key.</p>}>
         <AiKeys keys={keys} />
       </Section>
 
-      <Section id="weekly" title="Monday summary">
-        <DigestToggle isMine={digest?.value === user.id} hasKey={keys.length > 0} otherName={digestOwner && digestOwner.id !== user.id ? (digestOwner.name ?? digestOwner.email) : null} />
+      <Section id="auto" title="Background work">
+        <AutoAIToggle on={user.autoAI} hasKey={keys.length > 0} />
+      </Section>
+
+      <Section id="format" title="Meeting summary format" intro="Chosen once for the whole team.">
+        <SummaryFormat sections={format} />
       </Section>
 
       <Section id="profile" title="You">

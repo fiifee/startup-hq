@@ -5,8 +5,11 @@
  * (no agent), through the same services the AI uses.
  */
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { human } from "@/lib/actor";
+import { autoSummarise, maybeRefreshBrief } from "@/lib/auto";
+import { isSpeakerLine } from "@/lib/capture";
 import { API_TOKEN_PREFIX } from "@/lib/agent-auth";
 import { requireOwner, requireUser } from "@/lib/auth";
 import { encrypt, randomToken, sha256 } from "@/lib/crypto";
@@ -20,6 +23,7 @@ import { createGoal, updateGoal, type GoalPatch } from "@/lib/services/goals";
 import { addAgendaItem, removeAgendaItem, setAgendaItemDone } from "@/lib/services/agenda";
 import { recordDecision, updateDecision } from "@/lib/services/decisions";
 import { fileMeta, linkFile, unlinkFile } from "@/lib/services/drive";
+import { setMeetingFormat } from "@/lib/services/format";
 import { createMeeting, updateMeeting } from "@/lib/services/meetings";
 import { appendToNote, createNote, deleteBlock, editBlock, moveBlock, toggleChecklistItem, updateNote } from "@/lib/services/notes";
 import { resolveSuggestion } from "@/lib/services/suggestions";
@@ -30,6 +34,8 @@ type Result<T = unknown> = { ok: true; data?: T } | { ok: false; error: string }
 
 async function me() {
   const user = await requireUser();
+  // After any change, the user's AI may bring the brief up to date (if they opted in).
+  after(() => maybeRefreshBrief(user.id));
   return { user, actor: human(user.id) };
 }
 
@@ -149,19 +155,49 @@ export async function updateNoteAction(noteId: string, patch: { title?: string; 
 // ---- Meetings
 
 export async function createMeetingAction(formData: FormData) {
-  const { actor } = await me();
+  const { user, actor } = await me();
   const m = await createMeeting(actor, {
     title: String(formData.get("title") ?? ""),
     date: formData.get("date") ? new Date(String(formData.get("date"))) : new Date(),
     transcript: String(formData.get("transcript") ?? ""),
   });
+  after(() => autoSummarise(user.id, m.id));
   redirect(`/meetings/${m.id}`);
 }
 
 export async function updateMeetingAction(id: string, patch: { title?: string; date?: string; transcript?: string }) {
-  const { actor } = await me();
+  const { user, actor } = await me();
+  if (patch.transcript) after(() => autoSummarise(user.id, id));
   return attempt(() => updateMeeting(actor, id, { ...patch, date: patch.date ? new Date(patch.date) : undefined }).then(() => undefined));
 }
+
+// ---- Capture box
+
+export async function captureAction(kind: "task" | "note" | "meeting", text: string) {
+  const { user, actor } = await me();
+  const body = text.trim();
+  if (!body) return { ok: false as const, error: "Nothing to save" };
+  const [first, ...rest] = body.split("\n");
+  return attempt(async () => {
+    if (kind === "task") {
+      const t = await createTask(actor, { title: first.slice(0, 300), description: rest.join("\n").trim(), assignee: user.id });
+      return { href: `/tasks/${t.number}`, label: `T-${t.number}` };
+    }
+    if (kind === "note") {
+      const n = await createNote(actor, { title: first.replace(/^#+\s*/, "").slice(0, 200), content: rest.join("\n").trim() || undefined });
+      return { href: `/notes/${n.id}`, label: "note" };
+    }
+    const today = new Date();
+    const titled = !isSpeakerLine(first) && !/\d{1,2}:\d{2}/.test(first) && first.length <= 80 && rest.length > 0;
+    const m = await createMeeting(actor, {
+      title: titled ? first : `Meeting ${today.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
+      transcript: titled ? rest.join("\n") : body,
+    });
+    after(() => autoSummarise(user.id, m.id));
+    return { href: `/meetings/${m.id}`, label: "meeting" };
+  });
+}
+
 
 export async function processMeetingAction(id: string, provider?: Provider) {
   const { user } = await me();
@@ -348,13 +384,14 @@ export async function revokeGrantAction(id: string) {
   });
 }
 
-export async function setDigestUserAction(useMyKey: boolean) {
+export async function setAutoAIAction(on: boolean) {
   const { user } = await me();
   return attempt(async () => {
-    if (useMyKey) {
-      await db.setting.upsert({ where: { key: "digest.userId" }, update: { value: user.id }, create: { key: "digest.userId", value: user.id } });
-    } else {
-      await db.setting.deleteMany({ where: { key: "digest.userId", value: user.id } });
-    }
+    await db.user.update({ where: { id: user.id }, data: { autoAI: on } });
   });
+}
+
+export async function setMeetingFormatAction(sections: string[]) {
+  await me();
+  return attempt(() => setMeetingFormat(sections));
 }

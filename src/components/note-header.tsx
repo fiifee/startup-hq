@@ -33,7 +33,7 @@ export function NoteActions({ noteId, pinned }: { noteId: string; pinned: boolea
       <button
         disabled={pending}
         onClick={() => {
-          if (confirm("Archive this note? It disappears from lists but is kept.")) run(() => updateNoteAction(noteId, { archived: true }), "Archived", () => router.push("/notes"));
+          if (confirm("Archive this note? It disappears from lists but is kept.")) run(() => updateNoteAction(noteId, { archived: true }), "Archived", () => router.push("/docs"));
         }}
         className={btnSmall}
       >

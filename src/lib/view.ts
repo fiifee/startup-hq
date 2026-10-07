@@ -17,3 +17,8 @@ export function feedItems(rows: { id: string; summary: string; byId: string | nu
 export function daysAgo(days: number) {
   return new Date(Date.now() - days * 86_400_000);
 }
+
+/** Whether `date` is within the last `minutes`. */
+export function isRecent(date: Date, minutes: number) {
+  return Date.now() - date.getTime() < minutes * 60_000;
+}

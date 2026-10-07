@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Check, Copy, Trash2 } from "lucide-react";
 import {
   addFounderAction, createApiTokenAction, deleteAiKeyAction, disconnectDriveAction, removeFounderAction, revokeApiTokenAction,
-  revokeGrantAction, saveAiKeyAction, setAiModelAction, setDigestUserAction, setDriveFolderAction, updateProfileAction,
+  revokeGrantAction, saveAiKeyAction, setAiModelAction, setAutoAIAction, setDriveFolderAction, setMeetingFormatAction, updateProfileAction,
 } from "@/app/actions";
 import { Avatar, type Founder } from "./people";
-import { btnDanger, btnPrimary, btnSecondary, btnSmall, FOUNDER_COLORS, hintCls, inputCls, labelCls, relative, selectCls } from "./ui";
+import { btnDanger, btnPrimary, btnSmall, FOUNDER_COLORS, hintCls, inputCls, labelCls, relative, selectCls } from "./ui";
 import { useAction } from "./use-action";
 
 export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
@@ -257,16 +257,47 @@ export function DriveDisconnect() {
   );
 }
 
-export function DigestToggle({ isMine, hasKey, otherName }: { isMine: boolean; hasKey: boolean; otherName: string | null }) {
+/** One switch for all background AI work, always on the user's own key. */
+export function AutoAIToggle({ on, hasKey }: { on: boolean; hasKey: boolean }) {
   const { pending, run } = useAction();
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-ink-2">
-        {isMine ? "Your key writes the Monday summary and updates the company brief." : otherName ? `${otherName}'s key writes the Monday summary.` : "No key chosen: the Monday summary lists facts without an AI-written overview."}
-      </p>
-      <button disabled={pending || (!hasKey && !isMine)} onClick={() => run(() => setDigestUserAction(!isMine))} className={btnSecondary}>
-        {isMine ? "Stop using my key" : "Use my key for it"}
-      </button>
+    <div className="space-y-3">
+      <label className={`flex items-start gap-3 ${!hasKey && !on ? "opacity-60" : ""}`}>
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={pending || (!hasKey && !on)}
+          onChange={(e) => run(() => setAutoAIAction(e.target.checked), e.target.checked ? "Your AI will work automatically" : "Automatic work is off")}
+          className="mt-1 w-4 h-4 accent-[var(--accent)]"
+        />
+        <span className="text-sm">
+          <span className="font-medium">Let my AI work automatically</span>
+          <span className="block text-ink-2 mt-0.5">
+            On your key: summarises a transcript as soon as you add one, keeps the company brief current once about 10 things have changed, and writes the Monday summary.
+          </span>
+        </span>
+      </label>
+      {!hasKey && <p className="text-sm text-warn">Add an AI key above first.</p>}
     </div>
+  );
+}
+
+export function SummaryFormat({ sections }: { sections: string[] }) {
+  const { pending, run } = useAction();
+  const [text, setText] = useState(sections.join("\n"));
+  const dirty = text.trim() !== sections.join("\n");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        run(() => setMeetingFormatAction(text.split("\n")), "Format saved");
+      }}
+      className="space-y-2"
+    >
+      <label htmlFor="format" className={labelCls}>Sections, one per line, in order</label>
+      <textarea id="format" value={text} onChange={(e) => setText(e.target.value)} rows={5} className={`${inputCls} h-auto py-2 font-mono text-sm`} />
+      <p className={hintCls}>Every AI fills exactly these, in the language of the meeting.</p>
+      <button disabled={pending || !dirty} className={btnPrimary}>Save format</button>
+    </form>
   );
 }

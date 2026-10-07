@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     if (!user?.isOwner) return Response.redirect(`${base}/settings?drive=forbidden`, 302);
     if (!tokens.refresh_token) return Response.redirect(`${base}/settings?drive=norefresh`, 302);
     await saveDriveConnection(tokens.refresh_token, claims.email);
-    return Response.redirect(`${base}/drive?connected=1`, 302);
+    return Response.redirect(`${base}/docs?kind=drive`, 302);
   }
 
   const user = await allowSignIn(claims.email);

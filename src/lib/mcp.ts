@@ -8,6 +8,7 @@ export const MCP_INSTRUCTIONS = `Startup HQ is the shared workspace of a three-p
 Call get_overview first: it includes the company brief, which says what the company is and where it stands. Everything you write is labelled as written by you on behalf of the user who connected you, and shown in their colour.
 Language: write in the language the user is writing to you in (Estonian or English, usually). When you work from source material without a user message, such as a meeting transcript, use the language of that material. Keep names and terms as they are.
 Rules: you cannot overwrite text a person wrote (such edits become suggestions they accept); use status "proposed" for tasks you inferred rather than were asked to create; link tasks to the goal they serve; check list_decisions before re-opening something already decided.
+Meeting summaries follow the team's fixed format, returned by get_meeting as summaryFormat.
 Keep the company brief current: after work that changes the picture (a goal achieved, a key task done, a decision, a meeting), call get_brief and update its narrative with edit_block / append_to_note, or call brief_reviewed if nothing needs to change.`;
 
 type RpcRequest = { jsonrpc: "2.0"; id?: string | number | null; method: string; params?: Record<string, unknown> };

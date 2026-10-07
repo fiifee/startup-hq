@@ -1,83 +1,95 @@
 import Link from "next/link";
 import { ActivityFeed } from "@/components/activity";
 import { Markdown } from "@/components/markdown";
-import { Avatar, firstName } from "@/components/people";
+import { Avatar, Byline, firstName } from "@/components/people";
+import { SuggestionList } from "@/components/suggestion-list";
 import { ConfirmAll, QuickAddTask, TaskList } from "@/components/tasks";
-import { cardCls, h1Cls, h2Cls } from "@/components/ui";
+import { cardCls, formatDate, h1Cls, h2Cls } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { recentActivity } from "@/lib/services/activity";
-import { briefStaleness, getBrief } from "@/lib/services/brief";
+import { briefStaleness, briefNote } from "@/lib/services/brief";
 import { listFounders } from "@/lib/services/people";
-import { feedItems } from "@/lib/view";
+import { listOpenSuggestions } from "@/lib/services/suggestions";
+import { daysAgo, feedItems } from "@/lib/view";
 
+/**
+ * Home is the inbox: what needs you, your tasks, the week's summary, and
+ * everything that changed (with Undo).
+ */
 export default async function Home() {
   const user = await requireUser();
-  const brief = await getBrief();
-  const [founders, mine, proposed, suggestions, activity, openByPerson, agendaCount, lastMeeting, staleness] = await Promise.all([
+  const brief = await briefNote();
+  const [founders, mine, proposed, suggestions, activity, openByPerson, agenda, lastMeeting, staleness, weekly] = await Promise.all([
     listFounders(),
-    db.task.findMany({ where: { assigneeId: user.id, status: { in: ["todo", "doing", "blocked"] } }, orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { number: "desc" }], take: 30 }),
-    db.task.findMany({ where: { status: "proposed" }, orderBy: { number: "asc" } }),
-    db.suggestion.count({ where: { status: "open" } }),
-    recentActivity({ limit: 25 }),
+    db.task.findMany({
+      where: { assigneeId: user.id, status: { in: ["todo", "doing", "blocked"] } },
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { number: "desc" }],
+      take: 30,
+      include: { goal: { select: { number: true, title: true } } },
+    }),
+    db.task.findMany({ where: { status: "proposed" }, orderBy: { number: "asc" }, include: { goal: { select: { number: true, title: true } } } }),
+    listOpenSuggestions(),
+    recentActivity({ limit: 20 }),
     db.task.groupBy({ by: ["assigneeId", "status"], _count: true, where: { status: { in: ["todo", "doing", "blocked"] } } }),
-    db.agendaItem.count({ where: { meetingId: null, done: false } }),
+    db.agendaItem.findMany({ where: { meetingId: null, done: false }, orderBy: { createdAt: "asc" }, take: 4 }),
     db.meeting.findFirst({ orderBy: { date: "desc" } }),
     briefStaleness(brief.id),
+    db.note.findFirst({
+      where: { kind: "weekly", archivedAt: null, createdAt: { gte: daysAgo(7) } },
+      orderBy: { createdAt: "desc" },
+      include: { blocks: { orderBy: { position: "asc" }, take: 3 } },
+    }),
   ]);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const count = (id: string, status?: string) => openByPerson.filter((g) => g.assigneeId === id && (!status || g.status === status)).reduce((s, g) => s + g._count, 0);
+  const count = (id: string, status?: string) =>
+    openByPerson.filter((g) => g.assigneeId === id && (!status || g.status === status)).reduce((s, g) => s + g._count, 0);
+  const needsYou = proposed.length + suggestions.length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <header>
         <h1 className={h1Cls}>{greeting}, {firstName(user)}</h1>
         <p className="text-ink-2 mt-1">
-          {mine.length ? `${mine.length} open task${mine.length === 1 ? "" : "s"} on you.` : "Nothing on your plate."}{" "}
-          {agendaCount > 0 && <Link href="/agenda" className="underline">{agendaCount} topic{agendaCount === 1 ? "" : "s"} for the next meeting.</Link>}
+          {needsYou ? `${needsYou} thing${needsYou === 1 ? "" : "s"} need${needsYou === 1 ? "s" : ""} you. ` : "Nothing waiting for you. "}
+          {mine.length ? `${mine.length} open task${mine.length === 1 ? "" : "s"} on you.` : ""}
         </p>
       </header>
 
-      <section className={`${cardCls} overflow-hidden`}>
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
-          <h2 className={h2Cls}>Company brief</h2>
-          <div className="flex items-center gap-3 text-sm">
-            {staleness.changes.length > 0 && <span className="text-warn">{staleness.changes.length} change{staleness.changes.length === 1 ? "" : "s"} since last update</span>}
-            <Link href="/brief" className="text-ink-2 hover:text-ink">Open and edit →</Link>
+      {weekly && (
+        <section className={`${cardCls} overflow-hidden`}>
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
+            <h2 className={h2Cls}>{weekly.title}</h2>
+            <span className="inline-flex items-center gap-3 text-sm">
+              <Byline founders={founders} byId={weekly.createdById} agent={weekly.createdAgent} size="xs" />
+              <Link href={`/notes/${weekly.id}`} className="text-ink-2 hover:text-ink">Read →</Link>
+            </span>
           </div>
-        </div>
-        {brief.blocks.length ? (
-          <Link href="/brief" className="block px-4 py-3 max-h-48 overflow-hidden relative hover:bg-sunken/50">
-            <Markdown className="text-sm">{brief.blocks.slice(0, 4).map((b) => b.content).join("\n\n")}</Markdown>
+          <Link href={`/notes/${weekly.id}`} className="block px-4 py-3 max-h-40 overflow-hidden relative hover:bg-sunken/50">
+            <Markdown className="text-sm">{weekly.blocks.map((b) => b.content).join("\n\n")}</Markdown>
             <span className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface to-transparent" />
           </Link>
-        ) : (
-          <p className="px-4 py-3 text-sm text-ink-2">
-            Empty so far. <Link href="/brief" className="underline">Write what you are building</Link>, or let your AI draft it. Every connected AI reads it first.
-          </p>
-        )}
-      </section>
-
-      {(proposed.length > 0 || suggestions > 0) && (
-        <section className={`${cardCls} border-dashed`}>
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
-            <div>
-              <h2 className={h2Cls}>Waiting for a person</h2>
-              <p className="text-sm text-ink-2">AI proposed these. Nothing is final until someone confirms it.</p>
-            </div>
-            <ConfirmAll refs={proposed.map((t) => String(t.number))} />
-          </div>
-          <TaskList tasks={proposed} founders={founders} />
-          {suggestions > 0 && (
-            <Link href="/review" className="block px-4 py-2.5 border-t border-line text-sm underline">
-              {suggestions} suggested edit{suggestions === 1 ? "" : "s"} to text you wrote →
-            </Link>
-          )}
         </section>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
+      {needsYou > 0 && (
+        <section className="space-y-3">
+          <h2 className={h2Cls}>Needs you</h2>
+          {proposed.length > 0 && (
+            <div className={`${cardCls} border-dashed`}>
+              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
+                <p className="text-sm text-ink-2">AI proposed these tasks. Nothing is final until someone confirms it.</p>
+                <ConfirmAll refs={proposed.map((t) => String(t.number))} />
+              </div>
+              <TaskList tasks={proposed} founders={founders} />
+            </div>
+          )}
+          <SuggestionList suggestions={suggestions} founders={founders} />
+        </section>
+      )}
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         <div className="space-y-8 min-w-0">
           <section className={cardCls}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
@@ -85,18 +97,45 @@ export default async function Home() {
               <Link href="/tasks?who=me" className="text-sm text-ink-2 hover:text-ink">All →</Link>
             </div>
             <div className="p-3 border-b border-line"><QuickAddTask founders={founders} me={user.id} /></div>
-            <TaskList tasks={mine} founders={founders} empty="No open tasks. Add one above, or ask your AI." />
+            <TaskList tasks={mine} founders={founders} empty="No open tasks. Add one above, or press Capture." />
           </section>
           <section className={cardCls}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-              <h2 className={h2Cls}>Recent activity</h2>
-              <Link href="/activity" className="text-sm text-ink-2 hover:text-ink">All →</Link>
+              <h2 className={h2Cls}>What changed</h2>
+              <Link href="/activity" className="text-sm text-ink-2 hover:text-ink">Full history →</Link>
             </div>
             <ActivityFeed items={feedItems(activity)} founders={founders} />
           </section>
         </div>
 
         <aside className="space-y-6">
+          <section className={`${cardCls} p-4 space-y-2`}>
+            <div className="flex items-center justify-between">
+              <h2 className={h2Cls}>Next meeting</h2>
+              <Link href="/meetings" className="text-sm text-ink-2 hover:text-ink">Agenda →</Link>
+            </div>
+            {agenda.length ? (
+              <ul className="text-sm list-disc pl-5 space-y-0.5">{agenda.map((a) => <li key={a.id}>{a.text}</li>)}</ul>
+            ) : (
+              <p className="text-sm text-ink-3">No topics yet.</p>
+            )}
+            {lastMeeting && (
+              <p className="text-xs text-ink-3">
+                Last: <Link href={`/meetings/${lastMeeting.id}`} className="underline">{lastMeeting.title}</Link>, {formatDate(lastMeeting.date, false)}
+              </p>
+            )}
+          </section>
+          <section className={`${cardCls} p-4 space-y-1`}>
+            <div className="flex items-center justify-between">
+              <h2 className={h2Cls}>Company brief</h2>
+              <Link href="/brief" className="text-sm text-ink-2 hover:text-ink">Open →</Link>
+            </div>
+            <p className="text-sm text-ink-2">
+              {staleness.changes.length
+                ? `${staleness.changes.length} change${staleness.changes.length === 1 ? "" : "s"} since the story was updated.`
+                : "Up to date."}
+            </p>
+          </section>
           <section className={cardCls}>
             <h2 className={`${h2Cls} px-4 py-3 border-b border-line`}>Team</h2>
             <ul className="divide-y divide-line">
@@ -114,21 +153,7 @@ export default async function Home() {
               ))}
             </ul>
           </section>
-          <section className={`${cardCls} p-4 space-y-2`}>
-            <h2 className={h2Cls}>Last meeting</h2>
-            {lastMeeting ? (
-              <Link href={`/meetings/${lastMeeting.id}`} className="block hover:underline text-sm">
-                {lastMeeting.title} · {lastMeeting.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                {!lastMeeting.processedAt && <span className="text-warn"> · not summarised</span>}
-              </Link>
-            ) : (
-              <p className="text-sm text-ink-2">None yet.</p>
-            )}
-            <Link href="/meetings/new" className="inline-block text-sm underline">Add a meeting transcript</Link>
-          </section>
-          <section className="text-xs text-ink-3 px-1 space-y-1">
-            <p>Colours show who did what. A tinted row with ✦ was written by that user&apos;s AI.</p>
-          </section>
+          <p className="text-xs text-ink-3 px-1">Colours show who did what. A tinted row with ✦ was written by that user&apos;s AI.</p>
         </aside>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { db } from "@/lib/db";
 import { PROVIDERS, type Provider } from "@/lib/llm";
 import { getMeeting } from "@/lib/services/meetings";
 import { listFounders } from "@/lib/services/people";
+import { isRecent } from "@/lib/view";
 
 export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
   const user = await requireUser();
@@ -42,6 +43,9 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
       <section className={`${cardCls} p-4 space-y-2`}>
         {m.processedAt && (
           <p className="text-sm text-ink-2">Summarised by {m.processedBy} on {formatDate(m.processedAt)}.</p>
+        )}
+        {!m.processedAt && m.transcript.trim() && user.autoAI && keys.length > 0 && isRecent(m.createdAt, 10) && (
+          <p className="text-sm text-ink-2">Your AI is summarising this in the background. The page updates by itself.</p>
         )}
         <ProcessMeeting
           meetingId={m.id}

@@ -19,7 +19,14 @@ Menus are English; AIs write in whatever language the user writes to them in.
 - **Company brief.** A story people and AIs keep up to date, next to a live "right now"
   computed from goals, tasks and decisions. It shows how many changes happened since the
   story was last updated; the Monday cron refreshes it with the volunteered key.
-- **In-app assistant** (⌘J / Ctrl+J) and "Summarise with my AI" run on the founder's own API key.
+- **Five places**: Home (inbox, what changed, weekly summary), Tasks (list or board, group
+  by goal), Meetings (next agenda on top), Brief (story, roadmap, decisions), Docs (notes
+  and Drive).
+- **Capture** (⌘K / Ctrl+K): one box for a task, a note, a pasted transcript or a question.
+- **Background work**: per user, opt in; on their own key it summarises new transcripts,
+  keeps the brief current and writes the Monday summary. Meeting summaries follow one
+  format the team picks in Settings.
+- **In-app assistant** (inside Capture) and "Summarise with my AI" run on the founder's own API key.
 
 ## Stack
 

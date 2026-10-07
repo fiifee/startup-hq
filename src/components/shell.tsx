@@ -3,24 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  CalendarDays, CheckSquare, FileText, FolderOpen, Gavel, Home, Inbox, ListChecks, Menu, Newspaper, Search, Settings, X, Activity, BookOpen, Target,
-} from "lucide-react";
+import { BookOpen, CalendarDays, CheckSquare, FileText, Home, Menu, Plus, Settings, X } from "lucide-react";
 import { Avatar, type Founder } from "./people";
+import { openCapture } from "./capture";
+import { useShortcut } from "./shortcut";
 
 const NAV = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/brief", label: "Company brief", icon: BookOpen },
-  { href: "/goals", label: "Goals", icon: Target },
+  { href: "/", label: "Home", icon: Home, badge: true },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/meetings", label: "Meetings", icon: CalendarDays },
-  { href: "/agenda", label: "Next agenda", icon: ListChecks },
-  { href: "/decisions", label: "Decisions", icon: Gavel },
-  { href: "/notes", label: "Notes", icon: FileText },
-  { href: "/weekly", label: "Weekly", icon: Newspaper },
-  { href: "/drive", label: "Drive", icon: FolderOpen },
-  { href: "/review", label: "Review", icon: Inbox, badge: true },
-  { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/brief", label: "Brief", icon: BookOpen },
+  { href: "/docs", label: "Docs", icon: FileText },
 ];
 
 function NavLinks({ reviewCount, onNavigate }: { reviewCount: number; onNavigate?: () => void }) {
@@ -50,28 +43,20 @@ function NavLinks({ reviewCount, onNavigate }: { reviewCount: number; onNavigate
   );
 }
 
-function SearchBox({ onDone }: { onDone?: () => void }) {
-  const router = useRouter();
-  const [q, setQ] = useState("");
+function CaptureButton({ onDone }: { onDone?: () => void }) {
+  const hint = useShortcut("K");
   return (
-    <form
-      role="search"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (q.trim()) router.push(`/search?q=${encodeURIComponent(q.trim())}`);
+    <button
+      onClick={() => {
         onDone?.();
+        openCapture();
       }}
-      className="relative"
+      className="w-full h-9 px-2.5 rounded-md border border-line bg-surface text-sm text-ink-2 hover:text-ink hover:border-line-strong inline-flex items-center gap-2"
     >
-      <Search className="w-4 h-4 text-ink-3 absolute left-2.5 top-1/2 -translate-y-1/2" aria-hidden />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search everything"
-        aria-label="Search"
-        className="w-full h-9 pl-8 pr-2 rounded-md border border-line bg-surface text-sm placeholder:text-ink-3 focus:outline-none focus:border-accent"
-      />
-    </form>
+      <Plus className="w-4 h-4" aria-hidden />
+      <span className="flex-1 text-left">Capture or search</span>
+      {hint && <kbd className="text-xs text-ink-3 font-sans">{hint}</kbd>}
+    </button>
   );
 }
 
@@ -90,7 +75,7 @@ export function Shell({ user, reviewCount, children }: { user: Founder; reviewCo
     <div className="min-h-dvh md:flex">
       <aside className="hidden md:flex flex-col w-56 shrink-0 h-dvh sticky top-0 border-r border-line bg-canvas px-3 py-4 gap-4">
         <Link href="/" className="px-2.5 font-semibold tracking-tight">Startup HQ</Link>
-        <SearchBox />
+        <CaptureButton />
         <NavLinks reviewCount={reviewCount} />
         {footer}
       </aside>
@@ -101,8 +86,8 @@ export function Shell({ user, reviewCount, children }: { user: Founder; reviewCo
         </button>
         <Link href="/" className="font-semibold">Startup HQ</Link>
         {reviewCount > 0 && (
-          <Link href="/review" className="ml-auto text-xs font-medium px-2 h-6 inline-flex items-center rounded-full bg-ink text-canvas">
-            {reviewCount} to review
+          <Link href="/" className="ml-auto text-xs font-medium px-2 h-6 inline-flex items-center rounded-full bg-ink text-canvas">
+            {reviewCount} need you
           </Link>
         )}
       </header>
@@ -114,7 +99,7 @@ export function Shell({ user, reviewCount, children }: { user: Founder; reviewCo
               <span className="font-semibold">Startup HQ</span>
               <button aria-label="Close menu" onClick={() => setOpen(false)} className="p-1.5 rounded-md hover:bg-sunken"><X className="w-5 h-5" /></button>
             </div>
-            <SearchBox onDone={() => setOpen(false)} />
+            <CaptureButton onDone={() => setOpen(false)} />
             <NavLinks reviewCount={reviewCount} onNavigate={() => setOpen(false)} />
             {footer}
           </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DecisionRow, NewDecision } from "@/components/decisions";
 import { cardCls, h1Cls } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -13,6 +14,7 @@ export default async function DecisionsPage(props: PageProps<"/decisions">) {
   const [decisions, founders] = await Promise.all([listDecisions({ search: q || undefined, limit: 500 }), listFounders()]);
   return (
     <div className="max-w-3xl mx-auto space-y-5">
+      <Link href="/brief#decisions" className="text-sm text-ink-2 hover:text-ink">← Brief</Link>
       <div>
         <h1 className={h1Cls}>Decision log</h1>
         <p className="text-ink-2 mt-1">What you agreed and why, so nobody has to remember it.</p>

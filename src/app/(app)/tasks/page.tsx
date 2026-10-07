@@ -20,6 +20,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
   const view = (typeof sp.view === "string" && sp.view in VIEWS ? sp.view : "open") as keyof typeof VIEWS;
   const q = typeof sp.q === "string" ? sp.q : "";
   const layout = sp.layout === "board" ? "board" : "list";
+  const group = sp.group === "goal" ? "goal" : "status";
   const founders = await listFounders();
 
   const monthAgo = daysAgo(30);
@@ -43,7 +44,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
   });
 
   const link = (patch: Record<string, string>) => {
-    const p = new URLSearchParams({ who, view, layout, ...(q ? { q } : {}), ...patch });
+    const p = new URLSearchParams({ who, view, layout, group, ...(q ? { q } : {}), ...patch });
     return `/tasks?${p}`;
   };
   const chip = (active: boolean) =>
@@ -92,10 +93,21 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
             </Link>
           ))}
         </div>
+        {layout === "list" && (
+          <div className="flex items-center gap-1 text-sm text-ink-2 ml-auto">
+            Group by
+            {(["status", "goal"] as const).map((g) => (
+              <Link key={g} href={link({ group: g })} className={`h-8 px-2.5 rounded-md inline-flex items-center ${group === g ? "bg-sunken text-ink font-medium" : "hover:text-ink"}`}>
+                {g === "status" ? "Status" : "Goal"}
+              </Link>
+            ))}
+          </div>
+        )}
         <form className="flex gap-2">
           <input type="hidden" name="who" value={who} />
           <input type="hidden" name="view" value={view} />
           <input type="hidden" name="layout" value={layout} />
+          <input type="hidden" name="group" value={group} />
           <input name="q" defaultValue={q} placeholder="Filter…" aria-label="Filter tasks" className="h-9 px-3 rounded-md border border-line bg-surface text-sm w-48 focus:outline-none focus:border-accent" />
         </form>
       </div>
@@ -108,6 +120,21 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
 
       {layout === "board" ? (
         <TaskBoard tasks={tasks} founders={founders} />
+      ) : group === "goal" ? (
+        [...new Map(tasks.map((t) => [t.goal?.number ?? 0, t.goal])).entries()]
+          .sort(([a], [b]) => (a === 0 ? 1 : b === 0 ? -1 : a - b))
+          .map(([num, goal]) => {
+            const inGoal = tasks.filter((t) => (t.goal?.number ?? 0) === num);
+            return (
+              <section key={num} className={cardCls}>
+                <h2 className="px-4 py-2.5 border-b border-line text-sm font-semibold flex items-center gap-2">
+                  {goal ? <Link href={`/goals/${num}`} className="hover:underline">◎ {goal.title}</Link> : "No goal"}
+                  <span className="text-ink-3 font-normal tabular">{inGoal.length}</span>
+                </h2>
+                <TaskList tasks={inGoal.map((t) => ({ ...t, goal: null }))} founders={founders} />
+              </section>
+            );
+          })
       ) : view === "open" ? (
         VIEWS.open.map((status) => {
           const group = tasks.filter((t) => t.status === status);

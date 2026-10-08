@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {children}
       <AutoRefresh />
       <TimezoneSync current={user.timezone} pinned={user.timezonePinned} />
-      <Capture hasKey={keys > 0} autoAI={user.autoAI} color={user.color} firstName={firstName(user)} />
+      <Capture hasKey={keys > 0} autoAI={user.autoAI} color={user.color} firstName={firstName(user)} userTz={user.timezone} />
     </Shell>
   );
 }

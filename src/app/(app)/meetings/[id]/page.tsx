@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BlockEditor, type BlockSuggestion } from "@/components/block-editor";
 import { DecisionRow } from "@/components/decisions";
-import { EditTranscript, ProcessMeeting } from "@/components/meeting-forms";
+import { DeleteMeeting, EditTranscript, ProcessMeeting } from "@/components/meeting-forms";
 import { NoteTitle } from "@/components/note-header";
 import { Byline } from "@/components/people";
 import { DriveLinks } from "@/components/task-editor";
@@ -107,6 +107,9 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
         </summary>
         <div className="px-4 pb-4"><EditTranscript meetingId={m.id} transcript={m.transcript} /></div>
       </details>
+      <div className="flex justify-end">
+        <DeleteMeeting meetingId={m.id} title={m.title} />
+      </div>
     </div>
   );
 }

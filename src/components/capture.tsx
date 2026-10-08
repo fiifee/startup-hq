@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, CheckSquare, FileText, Loader2, Search, X } from "lucide-react";
-import { captureAction } from "@/app/actions";
-import { looksLikeTranscript } from "@/lib/capture";
+import { CalendarClock, CalendarDays, CheckSquare, FileText, Loader2, Search, X } from "lucide-react";
+import { captureAction, createEventAction, extractEventsAction } from "@/app/actions";
+import { guessTitle, looksLikeTranscript, mentionsDate } from "@/lib/capture";
+import { EventDrafts, type DraftEvent } from "./capture-events";
 import { Markdown } from "./markdown";
 import { AiMark } from "./people";
 import { useShortcut } from "./shortcut";
@@ -20,18 +21,22 @@ export function openCapture() {
 }
 
 type Msg = { role: "user" | "assistant"; content: string; actions?: { tool: string; ok: boolean; summary: string }[]; error?: boolean };
-type ActionId = "ai" | "task" | "note" | "meeting" | "search";
+type ActionId = "ai" | "task" | "note" | "meeting" | "event" | "search";
 
 /**
  * One box for everything: type a task, paste a transcript, jot a note, search, or
  * ask your AI. It picks the likely action; you can choose another. With an AI key
  * the default is to let your AI decide, and the conversation continues here.
  */
-export function Capture({ hasKey, autoAI, color, firstName }: { hasKey: boolean; autoAI: boolean; color: string; firstName: string }) {
+export function Capture({ hasKey, autoAI, color, firstName, userTz }: { hasKey: boolean; autoAI: boolean; color: string; firstName: string; userTz: string }) {
   const [open, setOpen] = useState(false);
+  // Events read from pasted text, waiting for review (null = not in that step).
+  const [drafts, setDrafts] = useState<DraftEvent[] | null>(null);
+  const [draftSource, setDraftSource] = useState("");
   const [text, setText] = useState("");
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState<ActionId | null>(null);
   const restored = useRef(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
@@ -79,10 +84,12 @@ export function Capture({ hasKey, autoAI, color, firstName }: { hasKey: boolean;
   const value = text.trim();
   const transcript = looksLikeTranscript(value);
   const singleLine = !value.includes("\n");
-  const fallback: ActionId = transcript ? "meeting" : hasKey ? "ai" : "task";
+  const datey = !transcript && mentionsDate(value) && (!singleLine || value.length > 60);
+  const fallback: ActionId = transcript ? "meeting" : datey ? "event" : hasKey ? "ai" : "task";
 
   const options: { id: ActionId; label: string; icon: React.ReactNode }[] = [
     ...(hasKey ? [{ id: "ai" as const, label: msgs.length ? "Send to my AI" : "Let my AI handle it", icon: <AiMark className="w-4 h-4" /> }] : []),
+    { id: "event", label: hasKey ? "Turn into event(s)" : "Add as event", icon: <CalendarClock className="w-4 h-4" /> },
     { id: "task", label: "Add as my task", icon: <CheckSquare className="w-4 h-4" /> },
     { id: "meeting", label: autoAI && hasKey ? "Add as meeting transcript, summarised by my AI" : "Add as meeting transcript", icon: <CalendarDays className="w-4 h-4" /> },
     { id: "note", label: "Save as a note", icon: <FileText className="w-4 h-4" /> },
@@ -117,7 +124,22 @@ export function Capture({ hasKey, autoAI, color, firstName }: { hasKey: boolean;
 
   async function run(id: ActionId) {
     if (!value || busy) return;
+    setRunning(id);
     if (id === "ai") return ask(value);
+    if (id === "event") {
+      setDraftSource(value);
+      if (!hasKey) {
+        setDrafts([{ include: true, title: guessTitle(value), kind: "event", importance: "optional", date: "", time: "", endTime: "", timezone: userTz, location: "", url: "", description: value.trim().slice(0, 1000), dateText: "", warnings: [] }]);
+        return;
+      }
+      setBusy(true);
+      const r = await extractEventsAction(value);
+      setBusy(false);
+      if (!r.ok) return void toast.error(r.error);
+      const found = (r.data as { events: (Omit<DraftEvent, "include" | "time" | "endTime"> & { time: string | null; endTime: string | null; location: string | null; url: string | null })[] }).events;
+      setDrafts(found.map((e) => ({ ...e, include: true, time: e.time ?? "", endTime: e.endTime ?? "", location: e.location ?? "", url: e.url ?? "" })));
+      return;
+    }
     if (id === "search") {
       setOpen(false);
       setText("");
@@ -138,6 +160,32 @@ export function Capture({ hasKey, autoAI, color, firstName }: { hasKey: boolean;
     setOpen(false);
     toast.success(id === "meeting" ? (autoAI && hasKey ? "Meeting added. Your AI is summarising it." : "Meeting added") : "Note saved");
     router.push(href);
+  }
+
+  async function saveDrafts() {
+    if (!drafts) return;
+    const chosen = drafts.filter((d) => d.include);
+    if (chosen.some((d) => !d.date || !d.title.trim())) return void toast.error("Every event needs a title and a date");
+    setBusy(true);
+    const added: number[] = [];
+    for (const d of chosen) {
+      const r = await createEventAction({
+        title: d.title, kind: d.kind, importance: d.importance, date: d.date, time: d.time || undefined,
+        endTime: d.endTime || null, timezone: d.timezone, location: d.location, url: d.url, description: d.description,
+        source: `Pasted by ${firstName}`, sourceQuote: d.dateText || draftSource.split("\n").find((l) => l.trim())?.slice(0, 300),
+      });
+      if (!r.ok) {
+        setBusy(false);
+        return void toast.error(r.error);
+      }
+      added.push((r.data as { number: number }).number);
+    }
+    setBusy(false);
+    setDrafts(null);
+    setText("");
+    setOpen(false);
+    toast.success(added.length === 1 ? `Added E-${added[0]} to the timeline` : `Added ${added.length} events to the timeline`);
+    router.push(added.length === 1 ? `/timeline/${added[0]}` : "/timeline");
   }
 
   return (
@@ -200,7 +248,19 @@ export function Capture({ hasKey, autoAI, color, firstName }: { hasKey: boolean;
                 />
                 <button aria-label="Close" onClick={() => setOpen(false)} className="p-1.5 rounded-md text-ink-3 hover:text-ink hover:bg-sunken"><X className="w-4 h-4" /></button>
               </div>
-              {value ? (
+              {drafts ? (
+                <div className="space-y-2">
+                  <EventDrafts drafts={drafts} setDrafts={setDrafts} userTz={userTz} />
+                  <div className="flex gap-2 items-center">
+                    <button disabled={busy || !drafts.some((d) => d.include)} onClick={saveDrafts} className="h-8 px-3 rounded-md bg-ink text-canvas text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50">
+                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
+                      Add {drafts.filter((d) => d.include).length || ""} to timeline
+                    </button>
+                    <button onClick={() => setDrafts(null)} className="h-8 px-3 rounded-md border border-line-strong text-sm hover:bg-sunken">Back</button>
+                    <span className="text-xs text-ink-3">Check dates and times; you can change any field.</span>
+                  </div>
+                </div>
+              ) : value ? (
                 <div className="flex flex-wrap gap-1.5">
                   {ordered.map((o, i) => (
                     <button
@@ -211,7 +271,7 @@ export function Capture({ hasKey, autoAI, color, firstName }: { hasKey: boolean;
                         i === 0 ? "bg-ink text-canvas font-medium" : "border border-line-strong text-ink-2 hover:text-ink hover:bg-sunken"
                       }`}
                     >
-                      {busy && i === 0 ? <Loader2 className="w-4 h-4 animate-spin" /> : o.icon}
+                      {busy && running === o.id ? <Loader2 className="w-4 h-4 animate-spin" /> : o.icon}
                       {o.label}
                       {i === 0 && enterHint && <kbd className="ml-1 text-xs opacity-70 font-sans">{singleLine ? "Enter" : enterHint}</kbd>}
                     </button>

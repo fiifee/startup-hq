@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { processMeetingAction, updateMeetingAction } from "@/app/actions";
+import { deleteMeetingAction, processMeetingAction, updateMeetingAction } from "@/app/actions";
 import { AiMark } from "./people";
 import { btnPrimary, btnSecondary, textareaCls } from "./ui";
 import { useAction } from "./use-action";
@@ -107,5 +107,23 @@ export function EditTranscript({ meetingId, transcript }: { meetingId: string; t
         {transcript && <button type="button" onClick={() => setEditing(false)} className={btnSecondary}>Cancel</button>}
       </div>
     </form>
+  );
+}
+
+/** Remove a meeting created by mistake; its agenda topics go back on the next agenda. */
+export function DeleteMeeting({ meetingId, title }: { meetingId: string; title: string }) {
+  const [pending, setPending] = useState(false);
+  return (
+    <button
+      disabled={pending}
+      onClick={async () => {
+        if (!confirm(`Delete the meeting "${title}"?\n\nIts notes and transcript are removed. Agenda topics it covered go back on the next agenda; tasks it proposed are dropped.`)) return;
+        setPending(true);
+        await deleteMeetingAction(meetingId);
+      }}
+      className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-sm text-danger hover:bg-danger-soft disabled:opacity-50"
+    >
+      <Trash2 className="w-4 h-4" /> Delete meeting
+    </button>
   );
 }

@@ -1,4 +1,4 @@
-import { by, type Actor } from "../actor";
+import { by, isAI, type Actor } from "../actor";
 import { db } from "../db";
 import { logActivity } from "./activity";
 import { splitBlocks } from "./notes";
@@ -122,5 +122,28 @@ export async function saveMeetingOutcome(actor: Actor, meetingId: string, outcom
     await logActivity(tx, actor, "meeting", m.id, "processed",
       `Summarised "${m.title}": ${decisions.length} decisions, ${tasks.length} proposed tasks, ${(outcome.followUps ?? []).length} follow-ups`);
     return { decisions, tasks };
+  });
+}
+
+/**
+ * Remove a meeting that should not exist (e.g. something pasted by mistake).
+ * People only. Agenda topics it took over go back on the next agenda, tasks it
+ * proposed are dropped (still undoable), other linked tasks and decisions stay.
+ */
+export async function deleteMeeting(actor: Actor, id: string) {
+  if (isAI(actor)) throw new Error("AI cannot delete meetings");
+  const m = await getMeeting(id);
+  return db.$transaction(async (tx) => {
+    const released = await tx.agendaItem.updateMany({ where: { meetingId: m.id, done: false }, data: { meetingId: null } });
+    const proposed = m.tasks.filter((t) => t.status === "proposed");
+    for (const t of proposed) {
+      await tx.task.update({ where: { id: t.id }, data: { status: "dropped", meetingId: null } });
+      await logActivity(tx, actor, "task", t.id, "updated", `Dropped T-${t.number} "${t.title}" with its meeting`, t);
+    }
+    // The meeting's notes page owns the meeting; deleting it removes both.
+    await tx.note.delete({ where: { id: m.noteId } });
+    await logActivity(tx, actor, "meeting", m.id, "deleted",
+      `Deleted meeting "${m.title}" (${m.date.toISOString().slice(0, 10)}); ${released.count} agenda topics back on the agenda, ${proposed.length} proposed tasks dropped`);
+    return { released: released.count, dropped: proposed.length };
   });
 }

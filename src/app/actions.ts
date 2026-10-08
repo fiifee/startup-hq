@@ -26,7 +26,8 @@ import { addAgendaItem, removeAgendaItem, setAgendaItemDone } from "@/lib/servic
 import { recordDecision, updateDecision } from "@/lib/services/decisions";
 import { fileMeta, linkFile, unlinkFile } from "@/lib/services/drive";
 import { setMeetingFormat } from "@/lib/services/format";
-import { createMeeting, updateMeeting } from "@/lib/services/meetings";
+import { extractEvents } from "@/lib/extract-event";
+import { createMeeting, deleteMeeting, updateMeeting } from "@/lib/services/meetings";
 import { appendToNote, createNote, deleteBlock, editBlock, moveBlock, toggleChecklistItem, updateNote } from "@/lib/services/notes";
 import { resolveSuggestion } from "@/lib/services/suggestions";
 import { addTaskComment, createTask, deleteTask, updateTask, type TaskPatch } from "@/lib/services/tasks";
@@ -94,10 +95,14 @@ type EventForm = {
   importance?: string;
   date?: string;
   time?: string;
+  endDate?: string | null;
+  endTime?: string | null;
   timezone?: string;
   location?: string;
   url?: string;
   description?: string;
+  source?: string;
+  sourceQuote?: string;
 };
 
 function when(f: EventForm) {
@@ -105,14 +110,35 @@ function when(f: EventForm) {
   return parseWhen(f.time ? `${f.date} ${f.time}` : f.date, f.timezone);
 }
 
+/** End of an event: an explicit end date/time, or an end time on the start day. */
+function endOf(f: EventForm) {
+  const day = f.endDate || (f.endTime ? f.date : null);
+  if (!day) return null;
+  return parseWhen(f.endTime && f.time ? `${day} ${f.endTime}` : day, f.timezone).date;
+}
+
 export async function createEventAction(f: EventForm) {
   const { actor } = await me();
   return attempt(async () => {
     const w = when(f);
     if (!w || !f.title?.trim()) throw new Error("Add a title and a date");
-    const r = await createEvent(actor, { ...f, title: f.title, startsAt: w.date, allDay: w.allDay });
+    const r = await createEvent(actor, {
+      ...f,
+      title: f.title,
+      location: f.location ?? undefined,
+      url: f.url ?? undefined,
+      startsAt: w.date,
+      allDay: w.allDay,
+      endsAt: endOf(f),
+    });
     return { number: r.event.number, duplicate: r.duplicate };
   });
+}
+
+/** Read events out of pasted text with the user's own AI, for review before saving. */
+export async function extractEventsAction(text: string) {
+  const { user } = await me();
+  return attempt(() => extractEvents(user.id, user.timezone, text));
 }
 
 export async function updateEventAction(ref: string, f: EventForm & { status?: string }) {
@@ -248,6 +274,13 @@ export async function updateMeetingAction(id: string, patch: { title?: string; d
   const { user, actor } = await me();
   if (patch.transcript) after(() => autoSummarise(user.id, id));
   return attempt(() => updateMeeting(actor, id, { ...patch, date: patch.date ? new Date(patch.date) : undefined }).then(() => undefined));
+}
+
+export async function deleteMeetingAction(id: string) {
+  const { actor } = await me();
+  await deleteMeeting(actor, id);
+  revalidatePath("/", "layout");
+  redirect("/meetings");
 }
 
 // ---- Capture box

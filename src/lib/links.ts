@@ -90,6 +90,7 @@ export function cleanLinks(links: { label?: string | null; url: string }[]): Eve
 
 /** All links of a stored event (the old single `url` included). */
 export function eventLinks(e: { url?: string | null; links?: unknown }): EventLink[] {
-  const list = Array.isArray(e.links) ? (e.links as EventLink[]) : [];
+  // "Link" is what older events were migrated with; let those get a descriptive name.
+  const list = (Array.isArray(e.links) ? (e.links as EventLink[]) : []).map((l) => (l.label === "Link" ? { ...l, label: "" } : l));
   return cleanLinks([...list, ...(e.url ? [{ label: "", url: e.url }] : [])]);
 }

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { by, isAI, type Actor } from "../actor";
 import { db } from "../db";
 import { logActivity } from "./activity";
+import { cleanLinks, type EventLink } from "../links";
 import { DEFAULT_TZ, isValidTz } from "../time";
 import { resolveUser } from "./people";
 
@@ -85,6 +86,7 @@ export type EventInput = {
   timezone?: string;
   location?: string;
   url?: string;
+  links?: { label?: string | null; url: string }[];
   description?: string;
   source?: string;
   sourceQuote?: string;
@@ -112,7 +114,8 @@ export async function createEvent(actor: Actor, input: EventInput) {
         allDay: input.allDay ?? false,
         timezone: input.timezone ?? DEFAULT_TZ,
         location: input.location?.trim() ?? "",
-        url: input.url?.trim() ?? "",
+        url: "",
+        links: cleanLinks([...(input.links ?? []), ...(input.url?.trim() ? [{ url: input.url.trim() }] : [])]) as EventLink[],
         description: input.description?.trim() ?? "",
         source: input.source?.trim() ?? "",
         sourceQuote: input.sourceQuote?.trim().slice(0, 500) ?? "",
@@ -142,10 +145,14 @@ export async function updateEvent(actor: Actor, ref: string | number, patch: Eve
 
   const data: Prisma.EventUncheckedUpdateInput = {};
   if (!protectedText && Object.keys(text).length) Object.assign(data, text, by(actor, "text"));
-  for (const k of ["kind", "importance", "status", "location", "url", "allDay", "timezone"] as const) {
+  for (const k of ["kind", "importance", "status", "location", "allDay", "timezone"] as const) {
     if (patch[k] !== undefined && patch[k] !== current[k]) (data as Record<string, unknown>)[k] = patch[k];
   }
   if (patch.startsAt && +patch.startsAt !== +current.startsAt) data.startsAt = patch.startsAt;
+  if (patch.links !== undefined) {
+    data.links = cleanLinks(patch.links) as EventLink[];
+    data.url = "";
+  }
   if (patch.endsAt !== undefined && +(patch.endsAt ?? 0) !== +(current.endsAt ?? 0)) data.endsAt = patch.endsAt;
 
   return db.$transaction(async (tx) => {

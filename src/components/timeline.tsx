@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, ExternalLink, MapPin, Pencil, X } from "lucide-react";
+import { Check, Link2, MapPin, Pencil, Video, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   addEventNoteAction, confirmEventsAction, createEventAction, editEventNoteAction, setAttendanceAction, syncTimezoneAction, updateEventAction,
 } from "@/app/actions";
+import { cleanLinks, eventLinks, isJoinLink, type EventLink } from "@/lib/links";
 import { COMMON_TZ, daysUntil, formatDay, formatWhen, hm, inputValues, tzCity } from "@/lib/time";
 import { Markdown } from "./markdown";
 import { Avatar, Byline, firstName, type Founder } from "./people";
@@ -25,6 +26,7 @@ export type EventView = {
   timezone: string;
   location: string;
   url: string;
+  links: unknown;
   description: string;
   source: string;
   sourceQuote: string;
@@ -107,6 +109,43 @@ export function Attendees({ event, founders }: { event: EventView; founders: Fou
   );
 }
 
+/** Join button for the call (filled on the day), then the other links as chips. */
+export function EventLinks({ links, today, compact = false }: { links: EventLink[]; today?: boolean; compact?: boolean }) {
+  if (!links.length) return null;
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {links.map((l) =>
+        isJoinLink(l.url) ? (
+          <a
+            key={l.url}
+            href={l.url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className={`inline-flex items-center gap-1.5 ${compact ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-sm"} rounded-md font-medium ${
+              today ? "bg-accent text-surface hover:opacity-90" : "border border-accent/50 text-accent hover:bg-accent-soft"
+            }`}
+          >
+            <Video className="w-3.5 h-3.5" /> {l.label}
+          </a>
+        ) : (
+          <a
+            key={l.url}
+            href={l.url}
+            target="_blank"
+            rel="noreferrer"
+            title={l.url}
+            onClick={(e) => e.stopPropagation()}
+            className={`inline-flex items-center gap-1 ${compact ? "h-7 px-2 text-xs" : "h-8 px-2.5 text-sm"} rounded-md border border-line-strong text-ink-2 hover:text-ink hover:bg-sunken max-w-[220px]`}
+          >
+            <Link2 className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{l.label}</span>
+          </a>
+        ),
+      )}
+    </div>
+  );
+}
+
 export function EventRow({ event: e, founders, me, tz }: { event: EventView; founders: Founder[]; me: string; tz: string }) {
   const when = formatWhen(e.startsAt, e.allDay, tz, e.timezone);
   const cd = countdown(e, tz);
@@ -135,6 +174,7 @@ export function EventRow({ event: e, founders, me, tz }: { event: EventView; fou
           <Attendees event={e} founders={founders} />
           {e.status === "confirmed" && cd.tone !== "past" && <RsvpButtons event={e} me={me} />}
         </div>
+        {cd.tone !== "past" && <EventLinks links={eventLinks(e)} today={cd.tone === "now"} compact />}
       </div>
     </li>
   );
@@ -154,6 +194,7 @@ export function ProposedEvent({ event: e, founders, tz }: { event: EventView; fo
             <span className="text-xs text-ink-3">{KIND_LABEL[e.kind]}</span>
           </div>
           <p className="text-sm text-ink-2">{when.main}{when.local && ` · ${when.local}`}{e.location && ` · ${e.location}`}</p>
+          <div className="mt-1"><EventLinks links={eventLinks(e)} compact /></div>
         </div>
         <div className="flex gap-1">
           <button disabled={pending} onClick={() => run(() => confirmEventsAction([String(e.number)], true), "Added to the timeline")} className="h-8 px-2.5 rounded-md border border-line-strong text-sm hover:bg-sunken inline-flex items-center gap-1">
@@ -196,7 +237,7 @@ function TzSelect({ value, onChange, id }: { value: string; onChange: (v: string
   );
 }
 
-type FormState = { title: string; kind: string; importance: string; date: string; time: string; timezone: string; location: string; url: string; description: string };
+type FormState = { title: string; kind: string; importance: string; date: string; time: string; timezone: string; location: string; url: string; description: string; links?: EventLink[] };
 
 function EventFields({ f, set }: { f: FormState; set: (k: keyof FormState) => (e: { target: { value: string } }) => void }) {
   return (
@@ -259,7 +300,7 @@ export function NewEvent({ defaultTz }: { defaultTz: string }) {
           {more ? (
             <div className="grid sm:grid-cols-2 gap-3">
               <input value={f.location} onChange={set("location")} placeholder="Place (optional)" aria-label="Place" className={inputCls} />
-              <input value={f.url} onChange={set("url")} placeholder="Link (optional)" aria-label="Link" className={inputCls} />
+              <input value={f.url} onChange={set("url")} placeholder="Zoom/Teams or other link (optional)" aria-label="Link" className={inputCls} />
               <textarea value={f.description} onChange={set("description")} rows={2} placeholder="What it is, what to prepare" aria-label="Description" className={`${textareaCls} sm:col-span-2`} />
             </div>
           ) : (
@@ -275,7 +316,7 @@ export function NewEvent({ defaultTz }: { defaultTz: string }) {
 export function EventEditor({ event: e }: { event: EventView }) {
   const { pending, run } = useAction();
   const v = inputValues(e.startsAt, e.allDay, e.timezone);
-  const initial: FormState = { title: e.title, kind: e.kind, importance: e.importance, date: v.date, time: v.time, timezone: e.timezone, location: e.location, url: e.url, description: e.description };
+  const initial: FormState = { title: e.title, kind: e.kind, importance: e.importance, date: v.date, time: v.time, timezone: e.timezone, location: e.location, url: "", description: e.description, links: eventLinks(e) };
   const [f, setF] = useState(initial);
   const [editing, setEditing] = useState(false);
   const set = (k: keyof FormState) => (ev: { target: { value: string } }) => setF((s) => ({ ...s, [k]: ev.target.value }));
@@ -283,10 +324,8 @@ export function EventEditor({ event: e }: { event: EventView }) {
     return (
       <div className="space-y-2">
         {e.description ? <Markdown className="text-sm">{e.description}</Markdown> : <p className="text-sm text-ink-3">No details yet.</p>}
-        <div className="flex flex-wrap gap-3 text-sm text-ink-2">
-          {e.location && <span className="inline-flex items-center gap-1"><MapPin className="w-4 h-4" />{e.location}</span>}
-          {e.url && <a href={e.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline"><ExternalLink className="w-4 h-4" />Link</a>}
-        </div>
+        {e.location && <p className="text-sm text-ink-2 inline-flex items-center gap-1"><MapPin className="w-4 h-4" />{e.location}</p>}
+        <EventLinks links={eventLinks(e)} today={daysUntil(e.startsAt, e.timezone, e.allDay) === 0} />
         <button onClick={() => setEditing(true)} className={btnSecondary}><Pencil className="w-4 h-4" /> Edit</button>
       </div>
     );
@@ -295,7 +334,7 @@ export function EventEditor({ event: e }: { event: EventView }) {
     <form
       onSubmit={(ev) => {
         ev.preventDefault();
-        run(() => updateEventAction(String(e.number), f), "Saved", () => setEditing(false));
+        run(() => updateEventAction(String(e.number), { ...f, url: undefined }), "Saved", () => setEditing(false));
       }}
       className="space-y-3"
     >
@@ -309,10 +348,10 @@ export function EventEditor({ event: e }: { event: EventView }) {
           <label className={labelCls}>Place</label>
           <input value={f.location} onChange={set("location")} className={inputCls} />
         </div>
-        <div>
-          <label className={labelCls}>Link</label>
-          <input value={f.url} onChange={set("url")} className={inputCls} />
-        </div>
+      </div>
+      <div>
+        <label className={labelCls}>Links</label>
+        <LinksField links={f.links ?? []} onChange={(links) => setF((s) => ({ ...s, links }))} />
       </div>
       <div>
         <label className={labelCls}>Details</label>
@@ -381,6 +420,27 @@ export function EventNotes({ eventRef, notes, founders, me, past }: { eventRef: 
         <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder={past ? "What did you take away? Who did you meet? Follow-ups?" : "Notes, questions to ask, what to prepare…"} aria-label="Your note" className={textareaCls} />
         <button disabled={pending || !body.trim()} className={btnPrimary}>Add</button>
       </form>
+    </div>
+  );
+}
+
+/** Edit the list of links: name, address, remove; join links get a Join button. */
+function LinksField({ links, onChange }: { links: EventLink[]; onChange: (l: EventLink[]) => void }) {
+  const [draft, setDraft] = useState("");
+  return (
+    <div className="space-y-1.5">
+      {links.map((l, i) => (
+        <div key={i} className="flex items-center gap-2">
+          {isJoinLink(l.url) ? <Video className="w-4 h-4 text-accent shrink-0" /> : <Link2 className="w-4 h-4 text-ink-3 shrink-0" />}
+          <input value={l.label} onChange={(e) => onChange(links.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} aria-label="Link name" className={`${selectCls} w-48`} />
+          <input value={l.url} onChange={(e) => onChange(links.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))} aria-label="Address" className={`${selectCls} flex-1 min-w-0`} />
+          <button type="button" aria-label="Remove link" onClick={() => onChange(links.filter((_, j) => j !== i))} className="p-1.5 rounded text-ink-3 hover:text-danger hover:bg-sunken"><X className="w-4 h-4" /></button>
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="https://…" aria-label="New link" className={`${selectCls} flex-1`} />
+        <button type="button" disabled={!draft.trim()} onClick={() => { onChange(cleanLinks([...links, { label: "", url: draft.trim() }])); setDraft(""); }} className={btnSecondary}>Add link</button>
+      </div>
     </div>
   );
 }

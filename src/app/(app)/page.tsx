@@ -4,7 +4,7 @@ import { Markdown } from "@/components/markdown";
 import { Avatar, Byline, firstName } from "@/components/people";
 import { SuggestionList } from "@/components/suggestion-list";
 import { ConfirmAll, QuickAddTask, TaskList } from "@/components/tasks";
-import { ConfirmAllEvents, ImportanceChip, ProposedEvent } from "@/components/timeline";
+import { ConfirmAllEvents, EventLinks, ImportanceChip, ProposedEvent } from "@/components/timeline";
 import { cardCls, formatDate, h1Cls, h2Cls } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -12,7 +12,8 @@ import { recentActivity } from "@/lib/services/activity";
 import { briefStaleness, briefNote } from "@/lib/services/brief";
 import { listFounders } from "@/lib/services/people";
 import { listOpenSuggestions } from "@/lib/services/suggestions";
-import { formatWhen } from "@/lib/time";
+import { eventLinks, isJoinLink } from "@/lib/links";
+import { daysUntil, formatWhen } from "@/lib/time";
 import { daysAgo, feedItems } from "@/lib/view";
 
 /**
@@ -147,6 +148,9 @@ export default async function Home() {
                       <span className={mine ? "text-ink-3" : e.importance === "mandatory" ? "text-danger" : "text-ink-3"}>
                         {mine === "going" ? "You're going" : mine === "maybe" ? "Maybe" : mine === "no" ? "Not going" : "No answer yet"}
                       </span>
+                    </div>
+                    <div className="mt-1">
+                      <EventLinks links={eventLinks(e).filter((l) => isJoinLink(l.url))} today={daysUntil(e.startsAt, user.timezone, e.allDay) === 0} compact />
                     </div>
                   </li>
                 );

@@ -100,6 +100,7 @@ type EventForm = {
   timezone?: string;
   location?: string;
   url?: string;
+  links?: { label?: string; url: string }[];
   description?: string;
   source?: string;
   sourceQuote?: string;

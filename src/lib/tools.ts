@@ -13,6 +13,7 @@ import { createDoc, linkFile, listFolder, readFile, searchDrive } from "./servic
 import { briefForAI, briefStaleness, markBriefReviewed } from "./services/brief";
 import { addEventNote, createEvent, getEventDetail, listEvents, setAttendance, updateEvent } from "./services/events";
 import { createGoal, getGoalDetail, listGoals, updateGoal } from "./services/goals";
+import { eventLinks } from "./links";
 import { daysUntil, parseWhen, whenText } from "./time";
 import { createMeeting, getMeeting, listMeetings, saveMeetingOutcome, updateMeeting } from "./services/meetings";
 import { appendToNote, createNote, deleteBlock, editBlock, getNote, listNotes, noteForAI, toggleChecklistItem, updateNote } from "./services/notes";
@@ -293,6 +294,7 @@ export const TOOLS: ToolDef[] = [
         maybe: e.attendance.filter((x) => x.status === "maybe").map((x) => who(x.userId)),
         notGoing: e.attendance.filter((x) => x.status === "no").map((x) => who(x.userId)),
         notes: e._count.notes,
+        links: eventLinks(e),
       }));
     },
   }),
@@ -317,7 +319,7 @@ export const TOOLS: ToolDef[] = [
         ends: e.endsAt ? whenText(e.endsAt, e.allDay, tz, e.timezone) : null,
         timezone: e.timezone,
         location: e.location,
-        url: e.url,
+        links: eventLinks(e),
         description: e.description,
         source: e.source,
         sourceQuote: e.sourceQuote,
@@ -341,6 +343,7 @@ export const TOOLS: ToolDef[] = [
       ends: z.string().optional(),
       location: z.string().optional(),
       url: z.string().optional(),
+      links: z.array(z.object({ label: z.string().optional(), url: z.string() })).optional().describe("Join link (Zoom/Teams/Meet) first, then registration, agenda, materials; copied exactly from the source"),
       description: z.string().optional().describe("What it is and what to do, 1-3 sentences"),
       source: z.string().describe('Where you saw it, e.g. "WhatsApp · External Events & Opportunities, 8 Oct"'),
       source_quote: z.string().optional().describe("The one line that announces it, verbatim, max ~300 characters"),
@@ -358,6 +361,7 @@ export const TOOLS: ToolDef[] = [
         endsAt: a.ends ? parseWhen(a.ends, tz).date : null,
         location: a.location,
         url: a.url,
+        links: a.links,
         description: a.description,
         source: a.source,
         sourceQuote: a.source_quote,
@@ -379,6 +383,7 @@ export const TOOLS: ToolDef[] = [
       ends: z.string().optional(),
       location: z.string().optional(),
       url: z.string().optional(),
+      links: z.array(z.object({ label: z.string().optional(), url: z.string() })).optional().describe("Join link (Zoom/Teams/Meet) first, then registration, agenda, materials; copied exactly from the source"),
       description: z.string().optional(),
     },
     run: async (actor, a) => {
@@ -401,7 +406,7 @@ export const TOOLS: ToolDef[] = [
       timezone: z.string().optional().describe("IANA zone; `when` is read in it (default: the event's current zone)"),
       ends: z.string().nullable().optional(),
       location: z.string().optional(),
-      url: z.string().optional(),
+      links: z.array(z.object({ label: z.string().optional(), url: z.string() })).optional().describe("Replaces the whole list; include the existing links you keep"),
       description: z.string().optional(),
       status: z.enum(["proposed", "confirmed", "dismissed"]).optional(),
       reason: z.string().optional(),
@@ -421,7 +426,7 @@ export const TOOLS: ToolDef[] = [
           ...(a.timezone ? { timezone: a.timezone } : {}),
           ...(a.ends !== undefined ? { endsAt: a.ends ? parseWhen(a.ends, tz).date : null } : {}),
           location: a.location,
-          url: a.url,
+          links: a.links,
           description: a.description,
           status: a.status,
         },

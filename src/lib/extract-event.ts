@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { modelFor } from "./llm";
+import { cleanLinks, extractUrls, isJoinLink, unwrap, type EventLink } from "./links";
 import { formatDay, isValidTz, parseWhen, ymd } from "./time";
 
 /**
@@ -20,7 +21,9 @@ const schema = z.object({
       endTime: z.string().nullable(),
       timezone: z.string().describe("IANA zone the stated time is in: the zone written in the text if any, else where the event takes place, else the reader's zone"),
       location: z.string().nullable(),
-      url: z.string().nullable(),
+      links: z
+        .array(z.object({ label: z.string().describe('Short: "Join Zoom", "Register", "Agenda (PDF)"; add a passcode if the text gives one, e.g. "Join Zoom (passcode 482913)"'), url: z.string() }))
+        .describe("Every link that matters for this event (join/video call first, then registration, agenda, materials), copied exactly from the text. Never invent or shorten links."),
       description: z.string().describe("1-2 sentences: what it is and what to do"),
       dateText: z.string().describe("The exact words in the text that give the date and time, copied verbatim"),
     }),
@@ -35,7 +38,7 @@ const WEEKDAYS: Record<string, number> = {
   pühapäev: 0, esmaspäev: 1, teisipäev: 2, kolmapäev: 3, neljapäev: 4, reede: 5, laupäev: 6,
 };
 
-export type ExtractedEvent = z.infer<typeof schema>["events"][number] & { warnings: string[] };
+export type ExtractedEvent = Omit<z.infer<typeof schema>["events"][number], "links"> & { links: EventLink[]; warnings: string[] };
 
 export async function extractEvents(userId: string, userTz: string, text: string): Promise<{ events: ExtractedEvent[]; agent: string }> {
   const m = await modelFor(userId);
@@ -56,14 +59,18 @@ export async function extractEvents(userId: string, userTz: string, text: string
     prompt: text.slice(0, 30_000),
   });
 
-  return { events: checkDrafts(output.events, userTz, now), agent: m.agent };
+  return { events: checkDrafts(output.events, userTz, now, text), agent: m.agent };
 }
 
 /**
  * Validate what the model read: a real zone, a readable date, not in the past,
  * and a weekday named in the text that matches the date.
  */
-export function checkDrafts(raw: z.infer<typeof schema>["events"], userTz: string, now = new Date()): ExtractedEvent[] {
+export function checkDrafts(raw: z.infer<typeof schema>["events"], userTz: string, now = new Date(), sourceText = ""): ExtractedEvent[] {
+  // Only links that are really in the pasted text survive; a meeting link the model
+  // missed is added when there is a single event to attach it to.
+  const inText = extractUrls(sourceText);
+  const present = (u: string) => !sourceText || inText.includes(u.replace(/[.,;:!?*>)\]]+$/, "")) || sourceText.includes(u);
   return raw.map((e) => {
     const warnings: string[] = [];
     let timezone = e.timezone;
@@ -87,6 +94,14 @@ export function checkDrafts(raw: z.infer<typeof schema>["events"], userTz: strin
         warnings.push(`The text says "${named}", but ${e.date} is a ${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][actual]}. Check the date.`);
       }
     }
-    return { ...e, timezone, warnings };
+    const kept = (e.links ?? []).filter((l) => present(l.url));
+    if (kept.length < (e.links ?? []).length) warnings.push("Some links were not in the text and were left out.");
+    if (raw.length === 1) {
+      for (const u of inText) {
+        const real = unwrap(u);
+        if (isJoinLink(real) && !kept.some((l) => unwrap(l.url) === real)) kept.push({ label: "", url: real });
+      }
+    }
+    return { ...e, timezone, links: cleanLinks(kept), warnings };
   });
 }

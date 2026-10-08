@@ -81,7 +81,10 @@ announces an **event, a deadline or an opportunity with an apply-by date**:
    - `when`: `"YYYY-MM-DD"` (all day) or `"YYYY-MM-DD HH:MM"` as written in the message,
      and `timezone` where it happens (HFE events: `Europe/Tallinn`; online events: the
      organiser's zone if stated). Never convert times yourself.
-   - `location`, `url` if given; `description`: 1-2 sentences on what it is / what to do.
+   - `location` if given; `links`: every useful link copied exactly from the message, as
+     `[{"label": "Join Zoom (passcode 482913)", "url": "https://…"}, {"label": "Register", "url": "https://…"}]`
+     (the call link first; never shorten or invent links);
+     `description`: 1-2 sentences on what it is / what to do.
    - `source`: `"WhatsApp · <chat name>, <d Mon>"`; `source_quote`: the one announcing
      line, verbatim, at most ~300 characters. No other chat content.
 3. Never confirm your own proposals; a person does that in the app. Don't propose

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CalendarClock, CalendarDays, CheckSquare, FileText, Loader2, Search, X } from "lucide-react";
 import { captureAction, createEventAction, extractEventsAction } from "@/app/actions";
 import { guessTitle, looksLikeTranscript, mentionsDate } from "@/lib/capture";
+import { cleanLinks, extractUrls, type EventLink } from "@/lib/links";
 import { EventDrafts, type DraftEvent } from "./capture-events";
 import { Markdown } from "./markdown";
 import { AiMark } from "./people";
@@ -129,15 +130,16 @@ export function Capture({ hasKey, autoAI, color, firstName, userTz }: { hasKey: 
     if (id === "event") {
       setDraftSource(value);
       if (!hasKey) {
-        setDrafts([{ include: true, title: guessTitle(value), kind: "event", importance: "optional", date: "", time: "", endTime: "", timezone: userTz, location: "", url: "", description: value.trim().slice(0, 1000), dateText: "", warnings: [] }]);
+        setDrafts([{ include: true, title: guessTitle(value), kind: "event", importance: "optional", date: "", time: "", endTime: "", timezone: userTz, location: "", links: cleanLinks(extractUrls(value).map((url) => ({ url }))), description: value.trim().slice(0, 1000), dateText: "", warnings: [] }]);
         return;
       }
       setBusy(true);
       const r = await extractEventsAction(value);
       setBusy(false);
       if (!r.ok) return void toast.error(r.error);
-      const found = (r.data as { events: (Omit<DraftEvent, "include" | "time" | "endTime"> & { time: string | null; endTime: string | null; location: string | null; url: string | null })[] }).events;
-      setDrafts(found.map((e) => ({ ...e, include: true, time: e.time ?? "", endTime: e.endTime ?? "", location: e.location ?? "", url: e.url ?? "" })));
+      type Found = Omit<DraftEvent, "include" | "time" | "endTime" | "location" | "links"> & { time: string | null; endTime: string | null; location: string | null; links: EventLink[] };
+      const found = (r.data as { events: Found[] }).events;
+      setDrafts(found.map((e) => ({ ...e, include: true, time: e.time ?? "", endTime: e.endTime ?? "", location: e.location ?? "", links: e.links ?? [] })));
       return;
     }
     if (id === "search") {
@@ -171,7 +173,7 @@ export function Capture({ hasKey, autoAI, color, firstName, userTz }: { hasKey: 
     for (const d of chosen) {
       const r = await createEventAction({
         title: d.title, kind: d.kind, importance: d.importance, date: d.date, time: d.time || undefined,
-        endTime: d.endTime || null, timezone: d.timezone, location: d.location, url: d.url, description: d.description,
+        endTime: d.endTime || null, timezone: d.timezone, location: d.location, links: d.links, description: d.description,
         source: `Pasted by ${firstName}`, sourceQuote: d.dateText || draftSource.split("\n").find((l) => l.trim())?.slice(0, 300),
       });
       if (!r.ok) {

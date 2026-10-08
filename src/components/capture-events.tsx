@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Link2, Video, X } from "lucide-react";
+import { cleanLinks, isJoinLink, type EventLink } from "@/lib/links";
 import { COMMON_TZ, formatWhen, parseWhen, tzCity } from "@/lib/time";
 import { IMPORTANCE_META, KIND_LABEL } from "./ui";
 
@@ -14,7 +15,7 @@ export type DraftEvent = {
   endTime: string;
   timezone: string;
   location: string;
-  url: string;
+  links: EventLink[];
   description: string;
   dateText: string;
   warnings: string[];
@@ -75,6 +76,7 @@ export function EventDrafts({ drafts, setDrafts, userTz }: { drafts: DraftEvent[
               {yours ? <p className="text-ink">= {yours}</p> : <p className="text-warn">Fill in the date (and time, if it has one).</p>}
               {d.dateText && <p className="text-ink-3">Read from: “{d.dateText}”</p>}
               {d.location && <p className="text-ink-3">{d.location}</p>}
+              <LinkEditor links={d.links} onChange={(links) => update(i, { links })} />
               {d.warnings.map((w) => (
                 <p key={w} className="text-warn inline-flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />{w}</p>
               ))}
@@ -82,6 +84,39 @@ export function EventDrafts({ drafts, setDrafts, userTz }: { drafts: DraftEvent[
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** The links that will be saved with the event: rename, remove, or add one. */
+function LinkEditor({ links, onChange }: { links: EventLink[]; onChange: (l: EventLink[]) => void }) {
+  return (
+    <div className="space-y-1 pt-1">
+      {links.map((l, i) => (
+        <div key={l.url} className="flex items-center gap-1.5">
+          {isJoinLink(l.url) ? <Video className="w-3.5 h-3.5 text-accent shrink-0" /> : <Link2 className="w-3.5 h-3.5 text-ink-3 shrink-0" />}
+          <input
+            value={l.label}
+            onChange={(e) => onChange(links.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+            aria-label="Link name"
+            className="h-7 px-1.5 rounded border border-line bg-surface text-xs w-44"
+          />
+          <a href={l.url} target="_blank" rel="noreferrer" className="text-xs text-accent underline truncate flex-1" title={l.url}>{l.url}</a>
+          <button type="button" aria-label="Remove link" onClick={() => onChange(links.filter((_, j) => j !== i))} className="p-0.5 rounded text-ink-3 hover:text-danger"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      ))}
+      <input
+        placeholder="+ paste a link and press Enter"
+        aria-label="Add link"
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          const url = e.currentTarget.value.trim();
+          if (url) onChange(cleanLinks([...links, { label: "", url }]));
+          e.currentTarget.value = "";
+        }}
+        className="h-7 px-1.5 rounded border border-dashed border-line-strong bg-transparent text-xs w-64"
+      />
     </div>
   );
 }

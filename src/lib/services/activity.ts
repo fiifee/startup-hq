@@ -106,6 +106,7 @@ export async function revertActivity(actor: Actor, activityId: string) {
             status: before.status as string,
             location: before.location as string,
             url: before.url as string,
+            links: (before.links ?? []) as Prisma.InputJsonValue,
             allDay: before.allDay as boolean,
             timezone: before.timezone as string,
             startsAt: new Date(before.startsAt as string),

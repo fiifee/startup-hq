@@ -178,6 +178,8 @@ model Event {
   timezone     String            @default("Europe/Tallinn")
   location     String            @default("")
   url          String            @default("")
+  /// Every useful link: [{ label, url }]. Join links (Zoom, Teams, Meet) get a Join button.
+  links        Json              @default("[]")
   description  String            @default("")
   source       String            @default("") // "WhatsApp · External Events & Opportunities, 8 Oct"
   sourceQuote  String            @default("")

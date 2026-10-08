@@ -209,7 +209,7 @@ export async function processMeetingAction(id: string, provider?: Provider) {
 
 // ---- Decisions
 
-export async function recordDecisionAction(input: { title: string; rationale?: string; date?: string; meetingId?: string | null }) {
+export async function recordDecisionAction(input: { title: string; rationale?: string; date?: string; meetingId?: string | null; status?: "open" | "active" }) {
   const { actor } = await me();
   return attempt(() => recordDecision(actor, { ...input, decidedAt: input.date ? new Date(input.date) : undefined }).then(() => undefined));
 }

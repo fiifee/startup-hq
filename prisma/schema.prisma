@@ -245,11 +245,14 @@ model Decision {
   number       Int       @unique @default(autoincrement())
   title        String
   rationale    String    @default("")
-  status       String    @default("active") // active | reversed | superseded
+  status       String    @default("active") // open (still to decide) | active | reversed | superseded
   decidedAt    DateTime  @default(now())
   meetingId    String?
   createdById  String?
   createdAgent String?
+  // Who last wrote the title/rationale. AI may not overwrite a person's wording.
+  textById     String?
+  textAgent    String?
   createdAt    DateTime  @default(now())
   meeting      Meeting?  @relation(fields: [meetingId], references: [id], onDelete: SetNull)
 }

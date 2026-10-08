@@ -112,7 +112,14 @@ export async function revertActivity(actor: Actor, activityId: string) {
       } else {
         await tx.decision.update({
           where: { id: a.entityId },
-          data: { title: before.title as string, rationale: before.rationale as string, status: before.status as string },
+          data: {
+            title: before.title as string,
+            rationale: before.rationale as string,
+            status: before.status as string,
+            decidedAt: new Date(before.decidedAt as string),
+            textById: (before.textById as string | null) ?? null,
+            textAgent: (before.textAgent as string | null) ?? null,
+          },
         });
       }
     }

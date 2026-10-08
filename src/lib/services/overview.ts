@@ -17,7 +17,7 @@ export async function workspaceOverview(actor: Actor) {
     actor.userId
       ? db.task.findMany({ where: { assigneeId: actor.userId, status: { in: ["todo", "doing", "blocked", "proposed"] } }, orderBy: { dueDate: { sort: "asc", nulls: "last" } }, take: 30 })
       : Promise.resolve([]),
-    db.decision.findMany({ where: { status: "active" }, orderBy: { decidedAt: "desc" }, take: 10 }),
+    db.decision.findMany({ where: { status: { in: ["active", "open"] } }, orderBy: { decidedAt: "desc" }, take: 20 }),
     db.meeting.findMany({ orderBy: { date: "desc" }, take: 5, select: { id: true, title: true, date: true, processedAt: true } }),
     db.agendaItem.findMany({ where: { meetingId: null, done: false }, orderBy: { createdAt: "asc" } }),
     db.suggestion.count({ where: { status: "open" } }),
@@ -35,7 +35,8 @@ export async function workspaceOverview(actor: Actor) {
     taskCounts: Object.fromEntries([...open.map((g) => [g.status, g._count]), ["proposed", proposed]]),
     yourOpenTasks: mine.map((t) => ({ ref: `T-${t.number}`, title: t.title, status: t.status, due: t.dueDate?.toISOString().slice(0, 10) ?? null })),
     overdue: overdue.map((t) => ({ ref: `T-${t.number}`, title: t.title, assignee: t.assignee?.name ?? t.assignee?.email ?? null, due: t.dueDate?.toISOString().slice(0, 10) })),
-    recentDecisions: decisions.map((d) => ({ ref: `D-${d.number}`, title: d.title, date: d.decidedAt.toISOString().slice(0, 10) })),
+    recentDecisions: decisions.filter((d) => d.status === "active").slice(0, 10).map((d) => ({ ref: `D-${d.number}`, title: d.title, date: d.decidedAt.toISOString().slice(0, 10) })),
+    stillToDecide: decisions.filter((d) => d.status === "open").map((d) => ({ ref: `D-${d.number}`, question: d.title })),
     recentMeetings: meetings.map((m) => ({ id: m.id, title: m.title, date: m.date.toISOString().slice(0, 10), summarised: !!m.processedAt })),
     nextAgenda: agenda.map((a) => a.text),
     openSuggestions: suggestions,

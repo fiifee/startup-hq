@@ -10,6 +10,7 @@ type Open = {
   proposed: unknown;
   task: { number: number; title: string; description: string } | null;
   goal: { number: number; title: string; description: string } | null;
+  decision?: { number: number; title: string; rationale: string } | null;
   block: { content: string; note: { id: string; title: string; kind: string } } | null;
 };
 
@@ -31,6 +32,22 @@ export function SuggestionList({ suggestions, founders }: { suggestions: Open[];
               changes={Object.entries(p).map(([field, after]) => ({
                 label: field === "title" ? (isTask ? "Title" : "Goal") : "Description",
                 before: field === "title" ? target.title : target.description,
+                after: String(after),
+              }))}
+            />
+          );
+        }
+        if (s.decision) {
+          const d = s.decision;
+          return (
+            <SuggestionCard
+              key={s.id}
+              founders={founders}
+              suggestion={s}
+              context={{ label: `D-${d.number}`, href: "/brief#decisions" }}
+              changes={Object.entries(p).map(([field, after]) => ({
+                label: field === "title" ? "Decision" : "Why",
+                before: field === "title" ? d.title : d.rationale,
                 after: String(after),
               }))}
             />

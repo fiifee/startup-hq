@@ -92,7 +92,7 @@ export async function saveMeetingOutcome(actor: Actor, meetingId: string, outcom
     const decisions = [];
     for (const d of outcome.decisions ?? []) {
       const dec = await tx.decision.create({
-        data: { title: d.title.trim().slice(0, 300), rationale: d.rationale?.trim() ?? "", decidedAt: m.date, meetingId: m.id, ...by(actor, "created") },
+        data: { title: d.title.trim().slice(0, 300), rationale: d.rationale?.trim() ?? "", decidedAt: m.date, meetingId: m.id, ...by(actor, "created"), ...by(actor, "text") },
       });
       await logActivity(tx, actor, "decision", dec.id, "created", `Recorded D-${dec.number} "${dec.title}"`);
       decisions.push(dec);

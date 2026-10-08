@@ -27,10 +27,12 @@ export default async function BriefPage() {
     db.suggestion.findMany({ where: { entityType: "block", entityId: { in: note.blocks.map((b) => b.id) }, status: "open" } }),
     db.aiKey.count({ where: { userId: user.id } }),
     listGoals({ includeClosed: true }),
-    listDecisions({ limit: 8 }),
+    listDecisions({ limit: 30 }),
     db.decision.count(),
   ]);
   const finished = allGoals.filter((g) => g.status !== "active");
+  const toDecide = decisions.filter((d) => d.status === "open");
+  const decided = decisions.filter((d) => d.status !== "open").slice(0, 8);
   const who = (id: string | null) => firstName(founders.find((f) => f.id === id));
 
   return (
@@ -123,15 +125,26 @@ export default async function BriefPage() {
       <section id="decisions" className="space-y-3 scroll-mt-6 max-w-3xl">
         <div>
           <h2 className={h2Cls}>Decisions</h2>
-          <p className="text-sm text-ink-2">What we agreed and why. Meeting summaries add to this too.</p>
+          <p className="text-sm text-ink-2">What we agreed and why, and what we still have to decide. Click the pencil to edit any decision.</p>
         </div>
         <div className={`${cardCls} p-3`}><NewDecision /></div>
-        {decisions.length > 0 && (
-          <ul className={`${cardCls} divide-y divide-line`}>
-            {decisions.map((d) => <DecisionRow key={d.id} decision={d} founders={founders} />)}
-          </ul>
+        {toDecide.length > 0 && (
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold">To decide <span className="text-ink-3 font-normal">{toDecide.length}</span></h3>
+            <ul className={`${cardCls} divide-y divide-line border-dashed`}>
+              {toDecide.map((d) => <DecisionRow key={d.id} decision={d} founders={founders} />)}
+            </ul>
+          </div>
         )}
-        {decisionCount > decisions.length && (
+        {decided.length > 0 && (
+          <div className="space-y-1.5">
+            {toDecide.length > 0 && <h3 className="text-sm font-semibold">Decided</h3>}
+            <ul className={`${cardCls} divide-y divide-line`}>
+              {decided.map((d) => <DecisionRow key={d.id} decision={d} founders={founders} />)}
+            </ul>
+          </div>
+        )}
+        {decisionCount > toDecide.length + decided.length && (
           <Link href="/decisions" className="inline-block text-sm underline">All {decisionCount} decisions, with search →</Link>
         )}
       </section>

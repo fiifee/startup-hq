@@ -521,8 +521,8 @@ export const TOOLS: ToolDef[] = [
   def({
     name: "list_decisions",
     title: "Decision log",
-    description: "The decision log, newest first. Check it before proposing something that may already have been decided.",
-    input: { search: z.string().optional(), status: z.enum(["active", "reversed", "superseded"]).optional() },
+    description: 'The decision log, newest first, including decisions still to be made (status "open"). Check it before proposing something that may already have been decided.',
+    input: { search: z.string().optional(), status: z.enum(["open", "active", "reversed", "superseded"]).optional() },
     readOnly: true,
     run: async (_a, a) => {
       const name = await namer();
@@ -531,9 +531,10 @@ export const TOOLS: ToolDef[] = [
         title: d.title,
         rationale: d.rationale,
         status: d.status,
-        date: d.decidedAt.toISOString().slice(0, 10),
+        date: d.status === "open" ? null : d.decidedAt.toISOString().slice(0, 10),
         meeting: d.meeting?.title ?? null,
         recordedBy: name(d.createdById, d.createdAgent),
+        wordingBy: name(d.textById, d.textAgent),
       }));
     },
   }),
@@ -548,19 +549,32 @@ export const TOOLS: ToolDef[] = [
     },
   }),
   def({
+    name: "propose_decision",
+    title: "Propose a decision to make",
+    description:
+      "Add a decision the team still has to make (shown under 'To decide' and on the next agenda). Phrase the title as the question; put context and the options with their trade-offs in the rationale. People can edit it and mark it decided.",
+    input: { question: z.string().min(1), context: z.string().optional().describe("Background, options and trade-offs, in markdown"), meeting_id: z.string().optional() },
+    run: async (actor, a) => {
+      const d = await recordDecision(actor, { title: a.question, rationale: a.context, meetingId: a.meeting_id, status: "open" });
+      return { ref: `D-${d.number}`, status: "open" };
+    },
+  }),
+  def({
     name: "update_decision",
     title: "Update decision",
-    description: "Mark a decision reversed or superseded, or refine its wording.",
+    description:
+      'Settle an open decision (status "active", with the outcome as title and the reasoning as rationale), mark one reversed or superseded, or refine its wording. Rewording what a person wrote becomes a suggestion for them.',
     input: {
       decision: z.union([z.string(), z.number()]).describe('"D-3", 3 or the id'),
-      status: z.enum(["active", "reversed", "superseded"]).optional(),
+      status: z.enum(["open", "active", "reversed", "superseded"]).optional(),
       title: z.string().optional(),
       rationale: z.string().optional(),
+      reason: z.string().optional(),
     },
     run: async (actor, a) => {
       await findDecision(a.decision);
-      const d = await updateDecision(actor, a.decision, a);
-      return { ref: `D-${d.number}`, status: d.status };
+      const { decision: d, suggestionId } = await updateDecision(actor, a.decision, a, a.reason);
+      return { ref: `D-${d.number}`, status: d.status, ...(suggestionId ? { note: "A person wrote this wording; your version was saved as a suggestion." } : {}) };
     },
   }),
 
@@ -579,6 +593,7 @@ export const TOOLS: ToolDef[] = [
         overdue: g.overdue.map(taskOut),
         blocked: g.blocked.map(taskOut),
         awaitingConfirmation: g.proposed.map(taskOut),
+        toDecide: g.toDecide.map((d) => ({ ref: `D-${d.number}`, question: d.title })),
         openSuggestions: g.openSuggestions,
         lastMeeting: g.lastMeeting,
       };

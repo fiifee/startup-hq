@@ -10,14 +10,15 @@ export const maxDuration = 300;
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const [proposed, proposedEvents, suggestions, keys] = await Promise.all([
+  const [proposed, proposedEvents, suggestions, keys, asks] = await Promise.all([
     db.task.count({ where: { status: "proposed" } }),
     db.event.count({ where: { status: "proposed" } }),
     db.suggestion.count({ where: { status: "open" } }),
     db.aiKey.count({ where: { userId: user.id } }),
+    db.ask.count({ where: { toId: user.id, status: "open" } }),
   ]);
   return (
-    <Shell user={user} reviewCount={proposed + proposedEvents + suggestions}>
+    <Shell user={user} reviewCount={proposed + proposedEvents + suggestions + asks}>
       {children}
       <AutoRefresh />
       <TimezoneSync current={user.timezone} pinned={user.timezonePinned} />

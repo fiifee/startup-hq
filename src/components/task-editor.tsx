@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Link2, Trash2, X } from "lucide-react";
-import { commentAction, deleteTaskAction, linkDriveAction, unlinkDriveAction, updateTaskAction } from "@/app/actions";
+import { Link2, Pencil, Trash2, X } from "lucide-react";
+import { commentAction, deleteTaskAction, editCommentAction, linkDriveAction, unlinkDriveAction, updateTaskAction } from "@/app/actions";
+import { Markdown } from "./markdown";
 import { DateInput } from "./date-input";
 import { Byline, type Founder } from "./people";
-import { btnDanger, btnPrimary, btnSmall, inputCls, labelCls, selectCls, STATUS_META, textareaCls } from "./ui";
+import { btnDanger, btnPrimary, btnSmall, inputCls, labelCls, relative, selectCls, STATUS_META, textareaCls } from "./ui";
 import { useAction } from "./use-action";
 
 type Task = {
@@ -148,7 +149,7 @@ export function CommentBox({ taskRef }: { taskRef: string }) {
       }}
       className="flex gap-2 items-end"
     >
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder="Add a comment or progress note…" aria-label="Comment" className={textareaCls} />
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder="Add a comment… @Name asks them for input" aria-label="Comment" className={textareaCls} />
       <button disabled={pending || !body.trim()} className={btnPrimary}>Post</button>
     </form>
   );
@@ -186,5 +187,57 @@ export function DriveLinks({ links, target, founders }: { links: { id: string; n
         <button onClick={() => setAdding(true)} className={btnSmall}><Link2 className="w-4 h-4" /> Attach Drive file</button>
       )}
     </div>
+  );
+}
+
+/**
+ * One comment. Anyone can fix what an AI wrote; a person's own comment is theirs
+ * to change. Edits are marked and the old text stays in the history.
+ */
+export function CommentItem({
+  comment: c,
+  founders,
+  me,
+}: {
+  comment: { id: string; body: string; byId: string | null; agent: string | null; editedById: string | null; editedAt: Date | null; createdAt: Date };
+  founders: Founder[];
+  me: string;
+}) {
+  const { pending, run } = useAction();
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(c.body);
+  const canEdit = !!c.agent || c.byId === me;
+  const editor = founders.find((f) => f.id === c.editedById);
+  return (
+    <li className={`group px-4 py-3 ${c.agent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: founders.find((f) => f.id === c.byId)?.color }}>
+      <div className="flex items-center gap-2 mb-1">
+        <Byline founders={founders} byId={c.byId} agent={c.agent} size="xs" />
+        <span className="text-xs text-ink-3">{relative(c.createdAt)}</span>
+        {c.editedAt && <span className="text-xs text-ink-3">· edited{editor ? ` by ${editor.name?.split(" ")[0] ?? editor.email}` : ""}</span>}
+        {canEdit && !editing && (
+          <button onClick={() => setEditing(true)} aria-label="Edit comment" className="ml-auto p-1 rounded text-ink-3 hover:text-ink hover:bg-sunken opacity-0 group-hover:opacity-100 focus:opacity-100">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(() => editCommentAction(c.id, body), body.trim() ? "Saved" : "Deleted", () => setEditing(false));
+          }}
+          className="space-y-2"
+        >
+          <textarea autoFocus value={body} onChange={(e) => setBody(e.target.value)} rows={4} className={textareaCls} />
+          <div className="flex gap-2 items-center">
+            <button disabled={pending} className={btnPrimary}>Save</button>
+            <button type="button" onClick={() => { setBody(c.body); setEditing(false); }} className="h-10 px-4 rounded-md border border-line-strong text-sm hover:bg-sunken">Cancel</button>
+            <span className="text-xs text-ink-3">Empty saves as delete. Undo from the history.</span>
+          </div>
+        </form>
+      ) : (
+        <Markdown className="text-sm">{c.body}</Markdown>
+      )}
+    </li>
   );
 }

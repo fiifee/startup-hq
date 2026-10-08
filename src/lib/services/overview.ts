@@ -2,6 +2,7 @@ import type { Actor } from "../actor";
 import { db } from "../db";
 import { driveStatus } from "../google";
 import { recentActivity } from "./activity";
+import { targetOf } from "./asks";
 import { briefForAI } from "./brief";
 import { whenText } from "../time";
 import { actorName, listFounders, userTz } from "./people";
@@ -26,13 +27,15 @@ export async function workspaceOverview(actor: Actor) {
     driveStatus(),
     briefForAI(),
   ]);
-  const [tz, events] = await Promise.all([
+  const [tz, events, asksToYou, yourAsks] = await Promise.all([
     userTz(actor.userId),
     db.event.findMany({
       where: { status: { in: ["confirmed", "proposed"] }, startsAt: { gte: new Date(Date.now() - 86_400_000), lte: new Date(Date.now() + 30 * 86_400_000) } },
       include: { attendance: true },
       orderBy: { startsAt: "asc" },
     }),
+    actor.userId ? db.ask.findMany({ where: { toId: actor.userId, status: "open" }, orderBy: { createdAt: "asc" } }) : Promise.resolve([]),
+    actor.userId ? db.ask.findMany({ where: { fromId: actor.userId, OR: [{ status: "open" }, { seenByAsker: false, status: { in: ["answered", "declined"] } }] }, orderBy: { createdAt: "desc" } }) : Promise.resolve([]),
   ]);
   const name = (byId: string | null, agent: string | null) => actorName(founders, byId, agent);
   return {
@@ -49,6 +52,10 @@ export async function workspaceOverview(actor: Actor) {
     recentMeetings: meetings.map((m) => ({ id: m.id, title: m.title, date: m.date.toISOString().slice(0, 10), summarised: !!m.processedAt })),
     nextAgenda: agenda.map((a) => a.text),
     yourTimezone: tz,
+    requestsToYou: await Promise.all(
+      asksToYou.map(async (a) => ({ ref: `A-${a.number}`, from: actorName(founders, a.fromId, a.fromAgent), question: a.question.slice(0, 300), by: a.dueDate?.toISOString().slice(0, 10) ?? null, about: (await targetOf(a.entityType, a.entityId))?.label ?? a.entityType })),
+    ),
+    yourRequests: yourAsks.map((a) => ({ ref: `A-${a.number}`, to: actorName(founders, a.toId, null), status: a.status, answer: a.answer || null })),
     comingUp: events.map((e) => ({
       ref: `E-${e.number}`,
       title: e.title,

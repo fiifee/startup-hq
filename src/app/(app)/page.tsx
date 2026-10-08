@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ActivityFeed } from "@/components/activity";
 import { Markdown } from "@/components/markdown";
 import { Avatar, Byline, firstName } from "@/components/people";
+import { AnsweredList, AskCard } from "@/components/asks";
 import { SuggestionList } from "@/components/suggestion-list";
 import { ConfirmAll, QuickAddTask, TaskList } from "@/components/tasks";
 import { ConfirmAllEvents, EventLinks, ImportanceChip, ProposedEvent } from "@/components/timeline";
@@ -11,6 +12,7 @@ import { db } from "@/lib/db";
 import { recentActivity } from "@/lib/services/activity";
 import { briefStaleness, briefNote } from "@/lib/services/brief";
 import { listFounders } from "@/lib/services/people";
+import { listAsks } from "@/lib/services/asks";
 import { listOpenSuggestions } from "@/lib/services/suggestions";
 import { eventLinks, isJoinLink } from "@/lib/links";
 import { daysUntil, formatWhen } from "@/lib/time";
@@ -23,7 +25,7 @@ import { daysAgo, feedItems } from "@/lib/view";
 export default async function Home() {
   const user = await requireUser();
   const brief = await briefNote();
-  const [founders, mine, proposed, suggestions, activity, openByPerson, agenda, lastMeeting, staleness, weekly, proposedEvents, comingUp] = await Promise.all([
+  const [founders, mine, proposed, suggestions, activity, openByPerson, agenda, lastMeeting, staleness, weekly, proposedEvents, comingUp, asksToMe, answered] = await Promise.all([
     listFounders(),
     db.task.findMany({
       where: { assigneeId: user.id, status: { in: ["todo", "doing", "blocked"] } },
@@ -50,12 +52,14 @@ export default async function Home() {
       orderBy: { startsAt: "asc" },
       take: 4,
     }),
+    listAsks({ toId: user.id, status: ["open"] }),
+    listAsks({ fromId: user.id, unseenAnswered: true }),
   ]);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const count = (id: string, status?: string) =>
     openByPerson.filter((g) => g.assigneeId === id && (!status || g.status === status)).reduce((s, g) => s + g._count, 0);
-  const needsYou = proposed.length + suggestions.length + proposedEvents.length;
+  const needsYou = proposed.length + suggestions.length + proposedEvents.length + asksToMe.length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -86,6 +90,12 @@ export default async function Home() {
       {needsYou > 0 && (
         <section className="space-y-3">
           <h2 className={h2Cls}>Needs you</h2>
+          {asksToMe.length > 0 && (
+            <div className={cardCls}>
+              <p className="px-4 py-3 border-b border-line text-sm text-ink-2">Your teammates asked for your input.</p>
+              <ul className="divide-y divide-line">{asksToMe.map((a) => <AskCard key={a.id} ask={a} founders={founders} />)}</ul>
+            </div>
+          )}
           {proposed.length > 0 && (
             <div className={`${cardCls} border-dashed`}>
               <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
@@ -109,6 +119,8 @@ export default async function Home() {
           <SuggestionList suggestions={suggestions} founders={founders} />
         </section>
       )}
+
+      <AnsweredList asks={answered} founders={founders} />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         <div className="space-y-8 min-w-0">

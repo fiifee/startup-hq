@@ -4,6 +4,7 @@ import { db } from "../db";
 import { logActivity } from "./activity";
 import { cleanLinks, type EventLink } from "../links";
 import { DEFAULT_TZ, isValidTz } from "../time";
+import { asksFromMentions } from "./asks";
 import { resolveUser } from "./people";
 
 export const EVENT_KINDS = ["event", "deadline", "opportunity"] as const;
@@ -204,25 +205,27 @@ export async function addEventNote(actor: Actor, ref: string | number, body: str
   const e = await findEvent(ref);
   const text = body.trim();
   if (!text) throw new Error("Note is empty");
-  return db.$transaction(async (tx) => {
+  const n = await db.$transaction(async (tx) => {
     const n = await tx.eventNote.create({ data: { eventId: e.id, body: text, ...by(actor) } });
     await logActivity(tx, actor, "event", e.id, "noted", `Wrote about E-${e.number}: ${text.slice(0, 80)}`);
     return n;
   });
+  await asksFromMentions(actor, "event", e.id, text);
+  return n;
 }
 
-/** A note belongs to its writer; empty text deletes it. */
+/** Anyone may fix a note an AI wrote; a person's own note is theirs alone. Empty text deletes it. */
 export async function editEventNote(actor: Actor, noteId: string, body: string) {
   const n = await db.eventNote.findUniqueOrThrow({ where: { id: noteId } });
-  // People edit their own notes, including ones their AI wrote for them. AIs never rewrite notes.
-  if (isAI(actor) || n.byId !== actor.userId) throw new Error("Only the person who wrote this note can change it");
+  if (isAI(actor)) throw new Error("AI cannot change notes");
+  if (!n.agent && n.byId !== actor.userId) throw new Error("Only the person who wrote this note can change it");
   const text = body.trim();
   return db.$transaction(async (tx) => {
     if (!text) {
       await tx.eventNote.delete({ where: { id: noteId } });
       return null;
     }
-    const updated = await tx.eventNote.update({ where: { id: noteId }, data: { body: text, ...by(actor) } });
+    const updated = await tx.eventNote.update({ where: { id: noteId }, data: { body: text, editedById: actor.userId, editedAt: new Date() } });
     await logActivity(tx, actor, "event", n.eventId, "noted", `Edited a note: ${text.slice(0, 80)}`);
     return updated;
   });

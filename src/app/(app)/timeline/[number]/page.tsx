@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActivityFeed } from "@/components/activity";
+import { AskButton, AskThread } from "@/components/asks";
 import { Byline } from "@/components/people";
 import { SuggestionCard } from "@/components/suggestions";
 import { QuickAddTask, TaskList } from "@/components/tasks";
@@ -9,6 +10,7 @@ import { cardCls, h2Cls, KIND_LABEL } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { recentActivity } from "@/lib/services/activity";
+import { listAsks } from "@/lib/services/asks";
 import { getEventDetail } from "@/lib/services/events";
 import { listFounders } from "@/lib/services/people";
 import { daysUntil, formatWhen, hm } from "@/lib/time";
@@ -19,10 +21,11 @@ export default async function EventPage(props: PageProps<"/timeline/[number]">) 
   const { number } = await props.params;
   const e = await getEventDetail(number).catch(() => null);
   if (!e) notFound();
-  const [founders, activity, suggestions] = await Promise.all([
+  const [founders, activity, suggestions, asks] = await Promise.all([
     listFounders(),
     recentActivity({ entityType: "event", entityId: e.id, limit: 30 }),
     db.suggestion.findMany({ where: { entityType: "event", entityId: e.id, status: "open" } }),
+    listAsks({ entityType: "event", entityId: e.id, status: ["open", "answered", "declined"] }),
   ]);
   const tz = user.timezone;
   const when = formatWhen(e.startsAt, e.allDay, tz, e.timezone);
@@ -87,6 +90,14 @@ export default async function EventPage(props: PageProps<"/timeline/[number]">) 
             <p className="text-ink-3">{e.source}</p>
           </div>
         )}
+      </section>
+
+      <section className={`${cardCls} p-4 space-y-3`}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h2 className={h2Cls}>Input from the team</h2>
+          <AskButton entityType="event" entityId={e.id} founders={founders} me={user.id} />
+        </div>
+        <AskThread asks={asks} founders={founders} me={user.id} />
       </section>
 
       <section className={cardCls}>

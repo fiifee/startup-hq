@@ -373,7 +373,7 @@ export function EventEditor({ event: e }: { event: EventView }) {
   );
 }
 
-function NoteItem({ note, founders, me }: { note: { id: string; body: string; byId: string | null; agent: string | null }; founders: Founder[]; me: string }) {
+function NoteItem({ note, founders, me }: { note: { id: string; body: string; byId: string | null; agent: string | null; editedById?: string | null; editedAt?: Date | null }; founders: Founder[]; me: string }) {
   const { pending, run } = useAction();
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(note.body);
@@ -382,7 +382,8 @@ function NoteItem({ note, founders, me }: { note: { id: string; body: string; by
     <li className={`px-4 py-3 ${note.agent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: color }}>
       <div className="flex items-center gap-2 mb-1">
         <Byline founders={founders} byId={note.byId} agent={note.agent} size="xs" />
-        {note.byId === me && !editing && (
+        {note.editedAt && <span className="text-xs text-ink-3">· edited{(() => { const ed = founders.find((f) => f.id === note.editedById); return ed ? ` by ${firstName(ed)}` : ""; })()}</span>}
+        {(note.agent || note.byId === me) && !editing && (
           <button onClick={() => setEditing(true)} aria-label="Edit note" className="ml-auto p-1 rounded text-ink-3 hover:text-ink hover:bg-sunken"><Pencil className="w-3.5 h-3.5" /></button>
         )}
       </div>
@@ -409,7 +410,7 @@ function NoteItem({ note, founders, me }: { note: { id: string; body: string; by
 }
 
 /** Each person's notes about the event, after (or before) it. */
-export function EventNotes({ eventRef, notes, founders, me, past }: { eventRef: string; notes: { id: string; body: string; byId: string | null; agent: string | null }[]; founders: Founder[]; me: string; past: boolean }) {
+export function EventNotes({ eventRef, notes, founders, me, past }: { eventRef: string; notes: { id: string; body: string; byId: string | null; agent: string | null; editedById?: string | null; editedAt?: Date | null }[]; founders: Founder[]; me: string; past: boolean }) {
   const { pending, run } = useAction();
   const [body, setBody] = useState("");
   return (

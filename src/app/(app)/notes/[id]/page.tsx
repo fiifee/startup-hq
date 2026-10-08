@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ActivityFeed } from "@/components/activity";
+import { AskButton, AskThread } from "@/components/asks";
 import { BlockEditor, type BlockSuggestion } from "@/components/block-editor";
 import { NoteActions, NoteTitle } from "@/components/note-header";
 import { Byline } from "@/components/people";
@@ -8,19 +9,20 @@ import { DriveLinks } from "@/components/task-editor";
 import { cardCls, formatDate, h2Cls } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { listAsks } from "@/lib/services/asks";
 import { getNote } from "@/lib/services/notes";
 import { listFounders } from "@/lib/services/people";
 import { feedItems } from "@/lib/view";
 
 export default async function NotePage(props: PageProps<"/notes/[id]">) {
-  await requireUser();
+  const user = await requireUser();
   const { id } = await props.params;
   const note = await getNote(id).catch(() => null);
   if (!note) notFound();
   if (note.meeting) redirect(`/meetings/${note.meeting.id}`);
   if (note.kind === "brief") redirect("/brief");
   const blockIds = note.blocks.map((b) => b.id);
-  const [founders, suggestions, links, activity] = await Promise.all([
+  const [founders, suggestions, links, activity, asks] = await Promise.all([
     listFounders(),
     db.suggestion.findMany({ where: { entityType: "block", entityId: { in: blockIds }, status: "open" } }),
     db.driveLink.findMany({ where: { noteId: note.id } }),
@@ -29,6 +31,7 @@ export default async function NotePage(props: PageProps<"/notes/[id]">) {
       orderBy: { createdAt: "desc" },
       take: 30,
     }),
+    listAsks({ entityType: "note", entityId: id, status: ["open", "answered", "declined"] }),
   ]);
 
   return (
@@ -48,6 +51,13 @@ export default async function NotePage(props: PageProps<"/notes/[id]">) {
         suggestions={suggestions.map((s) => ({ ...s, proposed: s.proposed as BlockSuggestion["proposed"] }))}
         founders={founders}
       />
+      <section className={`${cardCls} p-4 space-y-3`}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h2 className={h2Cls}>Input from the team</h2>
+          <AskButton entityType="note" entityId={note.id} founders={founders} me={user.id} />
+        </div>
+        <AskThread asks={asks} founders={founders} me={user.id} />
+      </section>
       <section className={`${cardCls} p-4 space-y-3`}>
         <h2 className={h2Cls}>Drive files</h2>
         <DriveLinks links={links} target={{ noteId: note.id }} founders={founders} />

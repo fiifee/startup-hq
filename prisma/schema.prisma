@@ -212,16 +212,45 @@ model EventAttendance {
 
 /// What someone took away from an event.
 model EventNote {
-  id        String   @id @default(cuid())
-  eventId   String
-  body      String
-  byId      String?
-  agent     String?
+  id         String    @id @default(cuid())
+  eventId    String
+  body       String
+  byId       String?
+  agent      String?
+  editedById String?
+  editedAt   DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
+}
+
+/// One person asking another for input on something (a task, note, decision or
+/// event). One row per person asked. Only the person asked can answer; their AI
+/// may leave a draft for them.
+model Ask {
+  id           String    @id @default(cuid())
+  number       Int       @unique @default(autoincrement())
+  entityType   String // task | note | decision | event
+  entityId     String
+  question     String
+  fromId       String?
+  fromAgent    String?
+  toId         String
+  dueDate      DateTime?
+  status       String    @default("open") // open | answered | declined | cancelled
+  answerKind   String? // reply | approve | decline
+  answer       String    @default("")
+  answeredAt   DateTime?
+  draft        String    @default("")
+  draftAgent   String?
+  seenByAsker  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  @@index([toId, status])
+  @@index([fromId, status])
+  @@index([entityType, entityId])
 }
 
 /// A goal on the roadmap. Progress comes from the tasks linked to it.
@@ -247,12 +276,14 @@ model Goal {
 }
 
 model TaskComment {
-  id        String   @id @default(cuid())
-  taskId    String
-  body      String
-  byId      String?
-  agent     String?
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  taskId     String
+  body       String
+  byId       String?
+  agent      String?
+  editedById String?
+  editedAt   DateTime?
+  createdAt  DateTime  @default(now())
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])

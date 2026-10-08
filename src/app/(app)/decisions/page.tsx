@@ -8,7 +8,7 @@ import { listFounders } from "@/lib/services/people";
 export const metadata = { title: "Decisions" };
 
 export default async function DecisionsPage(props: PageProps<"/decisions">) {
-  await requireUser();
+  const user = await requireUser();
   const sp = await props.searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
   const [decisions, founders] = await Promise.all([listDecisions({ search: q || undefined, limit: 500 }), listFounders()]);
@@ -28,7 +28,7 @@ export default async function DecisionsPage(props: PageProps<"/decisions">) {
         <section className="space-y-1.5">
           <h2 className="text-sm font-semibold">To decide</h2>
           <ul className={`${cardCls} divide-y divide-line border-dashed`}>
-            {decisions.filter((d) => d.status === "open").map((d) => <DecisionRow key={d.id} decision={d} founders={founders} />)}
+            {decisions.filter((d) => d.status === "open").map((d) => <DecisionRow key={d.id} decision={d} founders={founders} me={user.id} />)}
           </ul>
         </section>
       )}
@@ -36,7 +36,7 @@ export default async function DecisionsPage(props: PageProps<"/decisions">) {
         <section className="space-y-1.5">
           <h2 className="text-sm font-semibold">Decided</h2>
           <ul className={`${cardCls} divide-y divide-line`}>
-            {decisions.filter((d) => d.status !== "open").map((d) => <DecisionRow key={d.id} decision={d} founders={founders} />)}
+            {decisions.filter((d) => d.status !== "open").map((d) => <DecisionRow key={d.id} decision={d} founders={founders} me={user.id} />)}
           </ul>
         </section>
       )}

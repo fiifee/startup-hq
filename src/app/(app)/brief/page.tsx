@@ -143,7 +143,7 @@ export default async function BriefPage() {
           <div className="space-y-1.5">
             <h3 className="text-sm font-semibold">To decide <span className="text-ink-3 font-normal">{toDecide.length}</span></h3>
             <ul className={`${cardCls} divide-y divide-line border-dashed`}>
-              {toDecide.map((d) => <DecisionRow key={d.id} decision={d} founders={founders} />)}
+              {toDecide.map((d) => <DecisionRow key={d.id} decision={d} founders={founders} me={user.id} />)}
             </ul>
           </div>
         )}
@@ -151,7 +151,7 @@ export default async function BriefPage() {
           <div className="space-y-1.5">
             {toDecide.length > 0 && <h3 className="text-sm font-semibold">Decided</h3>}
             <ul className={`${cardCls} divide-y divide-line`}>
-              {decided.map((d) => <DecisionRow key={d.id} decision={d} founders={founders} />)}
+              {decided.map((d) => <DecisionRow key={d.id} decision={d} founders={founders} me={user.id} />)}
             </ul>
           </div>
         )}

@@ -31,7 +31,8 @@ import { extractEvents } from "@/lib/extract-event";
 import { createMeeting, deleteMeeting, updateMeeting } from "@/lib/services/meetings";
 import { appendToNote, createNote, deleteBlock, editBlock, moveBlock, toggleChecklistItem, updateNote } from "@/lib/services/notes";
 import { resolveSuggestion } from "@/lib/services/suggestions";
-import { addTaskComment, createTask, deleteTask, updateTask, type TaskPatch } from "@/lib/services/tasks";
+import { addTaskComment, createTask, deleteTask, editTaskComment, updateTask, type TaskPatch } from "@/lib/services/tasks";
+import { answerAsk, cancelAsk, createAsk, markAnswersSeen, type AskTarget } from "@/lib/services/asks";
 import { generateWeeklySummary } from "@/lib/services/weekly";
 
 type Result<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
@@ -81,6 +82,36 @@ export async function deleteTaskAction(ref: string) {
   await deleteTask(actor, ref);
   revalidatePath("/", "layout");
   redirect("/tasks");
+}
+
+export async function editCommentAction(commentId: string, body: string) {
+  const { actor } = await me();
+  return attempt(() => editTaskComment(actor, commentId, body).then(() => undefined));
+}
+
+// ---- Asking teammates for input
+
+export async function askAction(input: { entityType: AskTarget; entityId: string; to: string[]; question: string; due?: string | null }) {
+  const { actor } = await me();
+  return attempt(async () => {
+    const asks = await createAsk(actor, { ...input, dueDate: dateOrNull(input.due) });
+    return { count: asks.length };
+  });
+}
+
+export async function answerAskAction(id: string, kind: "reply" | "approve" | "decline", text?: string) {
+  const { actor } = await me();
+  return attempt(() => answerAsk(actor, id, kind, text).then(() => undefined));
+}
+
+export async function cancelAskAction(id: string) {
+  const { actor } = await me();
+  return attempt(() => cancelAsk(actor, id));
+}
+
+export async function seenAnswersAction(ids: string[]) {
+  const { actor } = await me();
+  return attempt(() => markAnswersSeen(actor, ids));
 }
 
 export async function commentAction(ref: string, body: string) {

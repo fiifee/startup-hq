@@ -1,28 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActivityFeed } from "@/components/activity";
-import { Markdown } from "@/components/markdown";
 import { Byline } from "@/components/people";
 import { SuggestionCard } from "@/components/suggestions";
-import { CommentBox, DriveLinks, TaskEditor } from "@/components/task-editor";
-import { cardCls, formatDate, h2Cls, relative } from "@/components/ui";
+import { AskButton, AskThread } from "@/components/asks";
+import { CommentBox, CommentItem, DriveLinks, TaskEditor } from "@/components/task-editor";
+import { cardCls, formatDate, h2Cls } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { recentActivity } from "@/lib/services/activity";
 import { listFounders } from "@/lib/services/people";
+import { listAsks } from "@/lib/services/asks";
 import { getTaskDetail } from "@/lib/services/tasks";
 import { feedItems } from "@/lib/view";
 
 export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
-  await requireUser();
+  const user = await requireUser();
   const { number } = await props.params;
   const task = await getTaskDetail(number).catch(() => null);
   if (!task) notFound();
-  const [founders, activity, suggestions, goals] = await Promise.all([
+  const [founders, activity, suggestions, goals, asks] = await Promise.all([
     listFounders(),
     recentActivity({ entityType: "task", entityId: task.id, limit: 50 }),
     db.suggestion.findMany({ where: { entityType: "task", entityId: task.id, status: "open" }, orderBy: { createdAt: "asc" } }),
     db.goal.findMany({ where: { OR: [{ status: "active" }, ...(task.goalId ? [{ id: task.goalId }] : [])] }, orderBy: { number: "asc" }, select: { id: true, number: true, title: true } }),
+    listAsks({ entityType: "task", entityId: task.id, status: ["open", "answered", "declined"] }),
   ]);
 
   return (
@@ -59,6 +61,15 @@ export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
       </section>
 
       <section className={`${cardCls} p-4 space-y-3`}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h2 className={h2Cls}>Input from the team</h2>
+          <AskButton entityType="task" entityId={task.id} founders={founders} me={user.id} />
+        </div>
+        {asks.length === 0 && <p className="text-sm text-ink-3">Need someone to look at this? Ask for input, or write @Name in a comment.</p>}
+        <AskThread asks={asks} founders={founders} me={user.id} />
+      </section>
+
+      <section className={`${cardCls} p-4 space-y-3`}>
         <h2 className={h2Cls}>Drive files</h2>
         <DriveLinks links={task.links} target={{ taskId: task.id }} founders={founders} />
       </section>
@@ -66,15 +77,7 @@ export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
       <section className={`${cardCls}`}>
         <h2 className={`${h2Cls} px-4 py-3 border-b border-line`}>Comments</h2>
         <ul className="divide-y divide-line">
-          {task.comments.map((c) => (
-            <li key={c.id} className={`px-4 py-3 ${c.agent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: founders.find((f) => f.id === c.byId)?.color }}>
-              <div className="flex items-center gap-2 mb-1">
-                <Byline founders={founders} byId={c.byId} agent={c.agent} size="xs" />
-                <span className="text-xs text-ink-3">{relative(c.createdAt)}</span>
-              </div>
-              <Markdown className="text-sm">{c.body}</Markdown>
-            </li>
-          ))}
+          {task.comments.map((c) => <CommentItem key={c.id} comment={c} founders={founders} me={user.id} />)}
         </ul>
         <div className="p-3 border-t border-line">
           <CommentBox taskRef={String(task.number)} />

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { by, isAI, type Actor } from "../actor";
 import { db } from "../db";
 import { logActivity } from "./activity";
+import { asksFromMentions } from "./asks";
 import { goalIdFor } from "./goals";
 import { resolveUser } from "./people";
 
@@ -174,11 +175,14 @@ export async function addTaskComment(actor: Actor, ref: string | number, body: s
   const task = await findTask(ref);
   const text = body.trim();
   if (!text) throw new Error("Comment is empty");
-  return db.$transaction(async (tx) => {
+  const c = await db.$transaction(async (tx) => {
     const c = await tx.taskComment.create({ data: { taskId: task.id, body: text, ...by(actor) } });
     await logActivity(tx, actor, "task", task.id, "commented", `Commented on T-${task.number}: ${text.slice(0, 80)}`);
     return c;
   });
+  // "@Anna …" asks Anna for input on this task.
+  await asksFromMentions(actor, "task", task.id, text);
+  return c;
 }
 
 /** Hard delete is for people only; AI drops tasks instead, which can be undone. */
@@ -188,5 +192,34 @@ export async function deleteTask(actor: Actor, ref: string | number) {
   await db.$transaction(async (tx) => {
     await tx.task.delete({ where: { id: task.id } });
     await logActivity(tx, actor, "task", task.id, "deleted", `Deleted T-${task.number} "${task.title}"`);
+  });
+}
+
+/**
+ * Who may change a comment: anyone may fix what an AI wrote; a person's own
+ * comment is theirs alone. AIs never rewrite comments.
+ */
+export function canEditComment(actor: Actor, c: { byId: string | null; agent: string | null }) {
+  if (isAI(actor)) return false;
+  return !!c.agent || c.byId === actor.userId;
+}
+
+/** Edit (or, with empty text, delete) a task comment. The old text stays in the history. */
+export async function editTaskComment(actor: Actor, commentId: string, body: string) {
+  const c = await db.taskComment.findUnique({ where: { id: commentId }, include: { task: { select: { number: true } } } });
+  if (!c) throw new Error("Comment not found");
+  if (!canEditComment(actor, c)) throw new Error(isAI(actor) ? "AI cannot change comments" : "Only the person who wrote this comment can change it");
+  const text = body.trim();
+  return db.$transaction(async (tx) => {
+    const { task: _t, ...before } = c;
+    void _t;
+    if (!text) {
+      await tx.taskComment.delete({ where: { id: c.id } });
+      await logActivity(tx, actor, "comment", c.id, "deleted", `Deleted a comment on T-${c.task.number}: ${c.body.slice(0, 80)}`, before);
+      return null;
+    }
+    const updated = await tx.taskComment.update({ where: { id: c.id }, data: { body: text, editedById: actor.userId, editedAt: new Date() } });
+    await logActivity(tx, actor, "comment", c.id, "updated", `Edited a comment on T-${c.task.number}: ${text.slice(0, 80)}`, before);
+    return updated;
   });
 }

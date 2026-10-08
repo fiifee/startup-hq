@@ -46,7 +46,8 @@ export function isRevertible(a: { entityType: string; action: string; revertedAt
     (a.entityType === "block" && ["updated", "created", "deleted"].includes(a.action)) ||
     (a.entityType === "decision" && (a.action === "created" || a.action === "updated")) ||
     (a.entityType === "goal" && a.action === "updated") ||
-    (a.entityType === "event" && (a.action === "updated" || a.action === "created"))
+    (a.entityType === "event" && (a.action === "updated" || a.action === "created")) ||
+    (a.entityType === "comment" && (a.action === "updated" || a.action === "deleted"))
   );
 }
 
@@ -89,6 +90,24 @@ export async function revertActivity(actor: Actor, activityId: string) {
             content: before.content as string,
             byId: before.byId as string | null,
             agent: before.agent as string | null,
+          },
+        });
+      }
+    } else if (a.entityType === "comment") {
+      if (a.action === "updated") {
+        await tx.taskComment.update({
+          where: { id: a.entityId },
+          data: { body: before.body as string, editedById: (before.editedById as string | null) ?? null, editedAt: before.editedAt ? new Date(before.editedAt as string) : null },
+        });
+      } else {
+        await tx.taskComment.create({
+          data: {
+            id: a.entityId,
+            taskId: before.taskId as string,
+            body: before.body as string,
+            byId: before.byId as string | null,
+            agent: before.agent as string | null,
+            createdAt: new Date(before.createdAt as string),
           },
         });
       }

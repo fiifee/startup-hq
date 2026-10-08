@@ -56,6 +56,13 @@ Meetings are held in Estonian on Discord; Raiko produces the transcripts.
 4. Tell Raiko: N decisions, N proposed tasks (they wait for confirmation in Review).
 5. Update the company brief if the meeting changed the picture.
 
+## Requests between teammates
+
+- `list_requests` with `direction: "to_me"` shows what Raiko has been asked; mention open
+  ones (and their "by" dates) when relevant. You may `draft_answer`; only Raiko sends it.
+- "Ask Anna to check X" → `ask_teammate` with the task/decision/event and a specific
+  question (`by` date if Raiko gave one). `@Name` in a task comment does the same.
+
 ## Useful asks
 
 - "What's on me this week?" → `list_tasks` with `assignee: "me"`.

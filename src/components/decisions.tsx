@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Check, Pencil } from "lucide-react";
+import { Check, HelpCircle, Pencil } from "lucide-react";
 import { recordDecisionAction, updateDecisionAction } from "@/app/actions";
+import { AskButton } from "./asks";
 import { Markdown } from "./markdown";
 import { Byline, type Founder } from "./people";
 import { btnPrimary, btnSecondary, formatDate, inputCls, labelCls, textareaCls } from "./ui";
@@ -73,9 +74,10 @@ function DecisionForm({
  * One decision. Anyone can edit the wording; an open one ("to decide") gets a
  * Decide button that turns the question into the outcome.
  */
-export function DecisionRow({ decision: d, founders }: { decision: Decision; founders: Founder[] }) {
+export function DecisionRow({ decision: d, founders, me }: { decision: Decision; founders: Founder[]; me?: string }) {
   const { pending, run } = useAction();
   const [mode, setMode] = useState<"view" | "edit" | "decide">("view");
+  const [asking, setAsking] = useState(false);
   const open = d.status === "open";
   const color = founders.find((f) => f.id === (d.textById ?? d.createdById))?.color;
 
@@ -122,6 +124,11 @@ export function DecisionRow({ decision: d, founders }: { decision: Decision; fou
               <Check className="w-3.5 h-3.5" /> Decide
             </button>
           ) : null}
+          {me && !asking && (
+            <button aria-label={`Ask for input on D-${d.number}`} title="Ask a teammate" onClick={() => setAsking(true)} className="h-8 w-8 rounded-md text-ink-2 hover:text-ink hover:bg-sunken inline-flex items-center justify-center">
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          )}
           <button aria-label={`Edit D-${d.number}`} title="Edit" onClick={() => setMode("edit")} className="h-8 w-8 rounded-md text-ink-2 hover:text-ink hover:bg-sunken inline-flex items-center justify-center">
             <Pencil className="w-4 h-4" />
           </button>
@@ -136,6 +143,11 @@ export function DecisionRow({ decision: d, founders }: { decision: Decision; fou
           </select>
         </div>
       </div>
+      {asking && me && (
+        <div className="mt-2 pl-[52px]">
+          <AskButtonOpen entityId={d.id} founders={founders} me={me} onDone={() => setAsking(false)} />
+        </div>
+      )}
     </li>
   );
 }
@@ -188,5 +200,14 @@ export function NewDecision({ meetingId }: { meetingId?: string }) {
       />
       <button disabled={pending || !title.trim()} className={btnPrimary}>{kind === "open" ? "Add to To decide" : "Record decision"}</button>
     </form>
+  );
+}
+
+/** The ask form, already open (decisions open it from a small icon). */
+function AskButtonOpen({ entityId, founders, me, onDone }: { entityId: string; founders: Founder[]; me: string; onDone: () => void }) {
+  return (
+    <div className="space-y-1">
+      <AskButton entityType="decision" entityId={entityId} founders={founders} me={me} startOpen onClose={onDone} />
+    </div>
   );
 }

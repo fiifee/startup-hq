@@ -11,7 +11,9 @@ import { addAgendaItem, getAgenda, setAgendaItemDone } from "./services/agenda";
 import { findDecision, listDecisions, recordDecision, updateDecision } from "./services/decisions";
 import { createDoc, linkFile, listFolder, readFile, searchDrive } from "./services/drive";
 import { briefForAI, briefStaleness, markBriefReviewed } from "./services/brief";
-import { addEventNote, createEvent, getEventDetail, listEvents, setAttendance, updateEvent } from "./services/events";
+import { cancelAsk, createAsk, draftAnswer, findAsk, listAsks } from "./services/asks";
+import { findDecision as findDecisionRef } from "./services/decisions";
+import { addEventNote, createEvent, findEvent, getEventDetail, listEvents, setAttendance, updateEvent } from "./services/events";
 import { createGoal, getGoalDetail, listGoals, updateGoal } from "./services/goals";
 import { eventLinks } from "./links";
 import { daysUntil, parseWhen, whenText } from "./time";
@@ -218,7 +220,7 @@ export const TOOLS: ToolDef[] = [
   def({
     name: "comment_on_task",
     title: "Comment on task",
-    description: "Add a progress note or comment to a task. Comments are never overwritten.",
+    description: "Add a progress note or comment to a task. Writing @Name in it asks that teammate for input. Comments are never overwritten by AI.",
     input: { task: taskRef, body: z.string().min(1) },
     run: async (actor, a) => {
       await addTaskComment(actor, a.task, a.body);
@@ -252,6 +254,84 @@ export const TOOLS: ToolDef[] = [
     input: {},
     run: async () => {
       await markBriefReviewed();
+      return { ok: true };
+    },
+  }),
+
+  // ---- Asking teammates for input
+  def({
+    name: "ask_teammate",
+    title: "Ask a teammate for input",
+    description:
+      "Ask one or more teammates to look at a task, decision, event or note (\"can you check the questionnaire wording?\"). It shows on their Home under Needs you until they answer. Give exactly one of task / decision / event / note_id.",
+    input: {
+      to: z.array(z.string()).min(1).describe("Teammates' names or emails"),
+      question: z.string().min(1).describe("What you'd like them to look at, specific enough to answer without a meeting"),
+      task: taskRef.optional(),
+      decision: z.union([z.string(), z.number()]).optional(),
+      event: z.union([z.string(), z.number()]).optional(),
+      note_id: z.string().optional(),
+      by: date.optional().describe("When you need an answer"),
+    },
+    run: async (actor, a) => {
+      const [entityType, entityId] = a.task !== undefined
+        ? (["task", (await getTaskDetail(a.task)).id] as const)
+        : a.decision !== undefined
+          ? (["decision", (await findDecisionRef(a.decision)).id] as const)
+          : a.event !== undefined
+            ? (["event", (await findEvent(a.event)).id] as const)
+            : a.note_id
+              ? (["note", a.note_id] as const)
+              : (() => { throw new Error("Say which task, decision, event or note this is about"); })();
+      const asks = await createAsk(actor, { entityType, entityId, question: a.question, to: a.to, dueDate: toDate(a.by) ?? null });
+      return { asked: asks.map((x) => `A-${x.number}`) };
+    },
+  }),
+  def({
+    name: "list_requests",
+    title: "Requests for input",
+    description: 'Requests between teammates. direction "to_me": what your user has been asked (answer them in the app; you may leave a draft). "from_me": what your user asked and whether it was answered.',
+    input: { direction: z.enum(["to_me", "from_me"]), include_closed: z.boolean().optional() },
+    readOnly: true,
+    run: async (actor, a) => {
+      if (!actor.userId) return [];
+      const rows = await listAsks({
+        ...(a.direction === "to_me" ? { toId: actor.userId } : { fromId: actor.userId }),
+        ...(a.include_closed ? {} : { status: a.direction === "to_me" ? ["open"] : ["open", "answered", "declined"] }),
+        limit: 50,
+      });
+      const name = await namer();
+      return rows.map((r) => ({
+        ref: `A-${r.number}`,
+        about: r.target?.label ?? r.entityType,
+        from: name(r.fromId, r.fromAgent),
+        to: name(r.toId, null),
+        question: r.question,
+        by: r.dueDate?.toISOString().slice(0, 10) ?? null,
+        status: r.status,
+        answer: r.answer || null,
+        yourDraft: r.draft || null,
+      }));
+    },
+  }),
+  def({
+    name: "draft_answer",
+    title: "Draft an answer",
+    description: "Leave a draft answer to a request made to your user. They review and send it themselves; you cannot answer for them.",
+    input: { request: z.union([z.string(), z.number()]).describe('"A-3", 3 or the id'), draft: z.string().min(1) },
+    run: async (actor, a) => {
+      await draftAnswer(actor, a.request, a.draft);
+      return { ok: true, note: "Saved as a draft; your user sends it." };
+    },
+  }),
+  def({
+    name: "withdraw_request",
+    title: "Withdraw a request",
+    description: "Withdraw a request your user made that is no longer needed.",
+    input: { request: z.union([z.string(), z.number()]) },
+    run: async (actor, a) => {
+      await findAsk(a.request);
+      await cancelAsk(actor, a.request);
       return { ok: true };
     },
   }),

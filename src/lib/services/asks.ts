@@ -2,7 +2,9 @@ import type { Prisma } from "@prisma/client";
 import { isAI, type Actor } from "../actor";
 import { db } from "../db";
 import { logActivity, type Tx } from "./activity";
-import { listFounders, resolveUser } from "./people";
+import { parseDeadline } from "../deadline";
+import { ymd } from "../time";
+import { listFounders, resolveUser, userTz } from "./people";
 
 /**
  * Asking a teammate for input on something. One row per person asked. Only that
@@ -35,6 +37,12 @@ export async function targetOf(entityType: string, entityId: string): Promise<{ 
   return null;
 }
 
+/** A deadline written in the question ("before Friday"), read in the asker's time zone. */
+async function deadlineIn(actor: Actor, question: string) {
+  const d = parseDeadline(question, ymd(new Date(), await userTz(actor.userId)));
+  return d ? new Date(`${d.date}T00:00:00Z`) : null;
+}
+
 async function insertAsks(tx: Tx, actor: Actor, input: { entityType: AskTarget; entityId: string; question: string; to: string[]; dueDate?: Date | null }, label: string) {
   const created = [];
   for (const toId of input.to) {
@@ -64,7 +72,8 @@ export async function createAsk(actor: Actor, input: { entityType: AskTarget; en
   if (!target) throw new Error("Can't find what you're asking about");
   const ids = [...new Set(await Promise.all(input.to.map((t) => resolveUser(t, actor))))].filter((id): id is string => !!id && id !== actor.userId);
   if (!ids.length) throw new Error("Pick at least one teammate (not yourself)");
-  return db.$transaction((tx) => insertAsks(tx, actor, { ...input, to: ids }, target.label));
+  const dueDate = input.dueDate === undefined || input.dueDate === null ? await deadlineIn(actor, input.question) : input.dueDate;
+  return db.$transaction((tx) => insertAsks(tx, actor, { ...input, to: ids, dueDate }, target.label));
 }
 
 /**
@@ -87,7 +96,8 @@ export async function asksFromMentions(actor: Actor, entityType: AskTarget, enti
   if (!to.length) return [];
   const target = await targetOf(entityType, entityId);
   if (!target) return [];
-  return db.$transaction((tx) => insertAsks(tx, actor, { entityType, entityId, question: text, to }, target.label));
+  const dueDate = await deadlineIn(actor, text);
+  return db.$transaction((tx) => insertAsks(tx, actor, { entityType, entityId, question: text, to, dueDate }, target.label));
 }
 
 export async function findAsk(ref: string | number) {

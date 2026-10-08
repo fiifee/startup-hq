@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Check, HelpCircle, MessageSquare, X } from "lucide-react";
-import { answerAskAction, askAction, cancelAskAction, seenAnswersAction } from "@/app/actions";
+import { useEffect, useRef, useState } from "react";
+import { AlarmClock, Check, HelpCircle, MessageSquare, X } from "lucide-react";
+import { answerAskAction, askAction, cancelAskAction, seenAnswersAction, suggestDeadlineAction } from "@/app/actions";
+import { parseDeadline } from "@/lib/deadline";
 import { DateInput } from "./date-input";
 import { Markdown } from "./markdown";
 import { AiMark, Avatar, Byline, firstName, type Founder } from "./people";
@@ -41,7 +42,33 @@ export function AskButton({ entityType, entityId, founders, me, compact = false,
   const [to, setTo] = useState<string[]>([]);
   const [question, setQuestion] = useState("");
   const [due, setDue] = useState("");
+  // Where the date came from: read from the question (with the words) or set by hand.
+  const [found, setFound] = useState<{ phrase: string; byAI: boolean } | null>(null);
+  const manual = useRef(false);
   const others = founders.filter((f) => f.id !== me);
+
+  // Read a deadline out of the question as it is typed: instantly with the built-in
+  // reader, then (after a pause) with your AI if the wording is unusual.
+  const todayHere = () => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const onQuestion = (text: string) => {
+    setQuestion(text);
+    if (manual.current) return;
+    const local = parseDeadline(text, todayHere());
+    setDue(local?.date ?? "");
+    setFound(local ? { phrase: local.phrase, byAI: false } : null);
+  };
+  useEffect(() => {
+    if (manual.current || question.trim().length < 8 || parseDeadline(question, todayHere())) return;
+    const timer = setTimeout(async () => {
+      const r = await suggestDeadlineAction(question);
+      if (!manual.current && r.ok && r.data) {
+        const d = r.data as { date: string; phrase: string; byAI: boolean };
+        setDue(d.date);
+        setFound({ phrase: d.phrase, byAI: d.byAI });
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [question]);
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className={compact ? "p-1.5 rounded text-ink-2 hover:text-ink hover:bg-sunken" : btnSmall} title="Ask a teammate for input" aria-label="Ask for input">
@@ -58,6 +85,8 @@ export function AskButton({ entityType, entityId, founders, me, compact = false,
           setTo([]);
           setQuestion("");
           setDue("");
+          setFound(null);
+          manual.current = false;
         });
       }}
       className="w-full rounded-md border border-line-strong p-3 space-y-2 bg-surface"
@@ -82,16 +111,32 @@ export function AskButton({ entityType, entityId, founders, me, compact = false,
       <textarea
         autoFocus
         value={question}
-        onChange={(e) => setQuestion(e.target.value)}
+        onChange={(e) => onQuestion(e.target.value)}
         rows={3}
         placeholder="What should they look at? e.g. Can you check the questionnaire wording works for GPs?"
         aria-label="Question"
         className={textareaCls}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-ink-2">By</span>
-        <DateInput value={due} onChange={(e) => setDue(e.target.value)} aria-label="Answer by" className="h-9 px-2 rounded-md border border-line-strong bg-surface text-sm w-[120px]" />
-        <span className="text-xs text-ink-3">(optional)</span>
+        <span className="text-sm text-ink-2 inline-flex items-center gap-1"><AlarmClock className="w-4 h-4" /> By</span>
+        <DateInput
+          value={due}
+          onChange={(e) => {
+            manual.current = true;
+            setFound(null);
+            setDue(e.target.value);
+          }}
+          aria-label="Answer by"
+          className="h-9 px-2 rounded-md border border-line-strong bg-surface text-sm w-[120px]"
+        />
+        {found ? (
+          <span className="text-xs text-accent inline-flex items-center gap-1">
+            {found.byAI && <AiMark />} from “{found.phrase}”
+            <button type="button" aria-label="Clear deadline" onClick={() => { manual.current = true; setFound(null); setDue(""); }} className="text-ink-3 hover:text-ink"><X className="w-3 h-3" /></button>
+          </span>
+        ) : (
+          <span className="text-xs text-ink-3">{due ? "" : "(optional; or write it, e.g. “before Friday”)"}</span>
+        )}
         <span className="flex-1" />
         <button type="button" onClick={() => setOpen(false)} className={btnSecondary}>Cancel</button>
         <button disabled={pending || !to.length || !question.trim()} className={btnPrimary}>Send</button>

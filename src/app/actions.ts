@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { formatDate } from "@/components/ui";
 import { human } from "@/lib/actor";
 import { autoSummarise, maybeRefreshBrief } from "@/lib/auto";
+import { fillMissingDeadlines, suggestDeadline } from "@/lib/deadline-ai";
 import { isSpeakerLine } from "@/lib/capture";
 import { API_TOKEN_PREFIX } from "@/lib/agent-auth";
 import { requireOwner, requireUser } from "@/lib/auth";
@@ -99,6 +100,12 @@ export async function askAction(input: { entityType: AskTarget; entityId: string
   });
 }
 
+/** The deadline written in a request, for the Ask form to show as you type. */
+export async function suggestDeadlineAction(text: string) {
+  const { user } = await me();
+  return attempt(() => suggestDeadline(user.id, user.timezone, text));
+}
+
 export async function answerAskAction(id: string, kind: "reply" | "approve" | "decline", text?: string) {
   const { actor } = await me();
   return attempt(() => answerAsk(actor, id, kind, text).then(() => undefined));
@@ -115,7 +122,9 @@ export async function seenAnswersAction(ids: string[]) {
 }
 
 export async function commentAction(ref: string, body: string) {
-  const { actor } = await me();
+  const { user, actor } = await me();
+  // "@Liis … before the board meeting" — if the built-in reader found no date, the AI may.
+  if (body.includes("@")) after(() => fillMissingDeadlines(user.id));
   return attempt(() => addTaskComment(actor, ref, body).then(() => undefined));
 }
 
@@ -196,7 +205,8 @@ export async function setAttendanceAction(ref: string, status: string) {
 }
 
 export async function addEventNoteAction(ref: string, body: string) {
-  const { actor } = await me();
+  const { user, actor } = await me();
+  if (body.includes("@")) after(() => fillMissingDeadlines(user.id));
   return attempt(() => addEventNote(actor, ref, body).then(() => undefined));
 }
 

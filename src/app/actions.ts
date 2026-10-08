@@ -7,6 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
+import { formatDate } from "@/components/ui";
 import { human } from "@/lib/actor";
 import { autoSummarise, maybeRefreshBrief } from "@/lib/auto";
 import { isSpeakerLine } from "@/lib/capture";
@@ -303,7 +304,7 @@ export async function captureAction(kind: "task" | "note" | "meeting", text: str
     const today = new Date();
     const titled = !isSpeakerLine(first) && !/\d{1,2}:\d{2}/.test(first) && first.length <= 80 && rest.length > 0;
     const m = await createMeeting(actor, {
-      title: titled ? first : `Meeting ${today.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
+      title: titled ? first : `Meeting ${formatDate(today)}`,
       transcript: titled ? rest.join("\n") : body,
     });
     after(() => autoSummarise(user.id, m.id));

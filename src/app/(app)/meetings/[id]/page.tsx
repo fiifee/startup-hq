@@ -103,7 +103,7 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
 
       <details className={cardCls} open={!m.transcript}>
         <summary className="px-4 py-3 cursor-pointer text-sm font-semibold">
-          Transcript {m.transcript && <span className="font-normal text-ink-3">({m.transcript.length.toLocaleString()} characters)</span>}
+          Transcript {m.transcript && <span className="font-normal text-ink-3">({m.transcript.length.toLocaleString("et-EE")} characters)</span>}
         </summary>
         <div className="px-4 pb-4"><EditTranscript meetingId={m.id} transcript={m.transcript} /></div>
       </details>

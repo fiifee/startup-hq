@@ -2,7 +2,7 @@ import { generateText, Output } from "ai";
 import { z } from "zod";
 import { modelFor } from "./llm";
 import { cleanLinks, extractUrls, isJoinLink, unwrap, type EventLink } from "./links";
-import { formatDay, isValidTz, parseWhen, ymd } from "./time";
+import { isValidTz, parseWhen, ymd } from "./time";
 
 /**
  * Pull events out of pasted text (an email, a newsletter) with the user's own
@@ -44,7 +44,7 @@ export async function extractEvents(userId: string, userTz: string, text: string
   const m = await modelFor(userId);
   if (!m) throw new Error("Add your own AI key in Settings to read events from text.");
   const now = new Date();
-  const today = `${ymd(now, userTz)} (${formatDay(now, userTz)})`;
+  const today = `${ymd(now, userTz)} (${new Intl.DateTimeFormat("en-GB", { timeZone: userTz, weekday: "long" }).format(now)})`;
 
   const { output } = await generateText({
     model: m.model,

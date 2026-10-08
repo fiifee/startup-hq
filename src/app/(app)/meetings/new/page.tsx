@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createMeetingAction } from "@/app/actions";
+import { DateField } from "@/components/date-input";
 import { TranscriptField } from "@/components/meeting-forms";
 import { btnPrimary, cardCls, h1Cls, inputCls, labelCls } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -23,7 +24,7 @@ export default async function NewMeetingPage() {
           </div>
           <div>
             <label htmlFor="date" className={labelCls}>Date</label>
-            <input id="date" name="date" type="date" defaultValue={today} className={inputCls} />
+            <DateField id="date" name="date" defaultValue={today} className={`${inputCls} w-full`} />
           </div>
         </div>
         <div>

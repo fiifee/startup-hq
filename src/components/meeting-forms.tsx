@@ -35,7 +35,7 @@ export function TranscriptField({ name = "transcript", defaultValue = "" }: { na
           }}
         />
       </label>
-      {value && <span className="text-xs text-ink-3 ml-3">{value.length.toLocaleString()} characters</span>}
+      {value && <span className="text-xs text-ink-3 ml-3">{value.length.toLocaleString("et-EE")} characters</span>}
     </div>
   );
 }

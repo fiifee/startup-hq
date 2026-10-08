@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Check, X } from "lucide-react";
 import { confirmTasksAction, createTaskAction, updateTaskAction } from "@/app/actions";
+import { DateInput } from "./date-input";
 import { Avatar, Byline, type Founder } from "./people";
 import { dueLabel, inputCls, PRIORITY_META, selectCls, STATUS_META } from "./ui";
 import { useAction } from "./use-action";
@@ -121,7 +122,7 @@ export function QuickAddTask({ founders, me, meetingId, goal, eventId }: { found
         <option value="">Unassigned</option>
         {founders.map((f) => <option key={f.id} value={f.id}>{f.name ?? f.email}</option>)}
       </select>
-      <input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Due date" className={`${selectCls} w-[150px]`} />
+      <DateInput value={due} onChange={(e) => setDue(e.target.value)} aria-label="Due date" className={`${selectCls} w-[130px]`} />
       <button disabled={pending || !title.trim()} className="h-10 px-4 rounded-md bg-ink text-canvas text-sm font-medium disabled:opacity-50">Add</button>
     </form>
   );

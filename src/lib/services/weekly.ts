@@ -5,7 +5,8 @@ import { modelFor } from "../llm";
 import { createNote } from "./notes";
 import { actorName, listFounders } from "./people";
 
-const fmt = (d: Date) => d.toISOString().slice(0, 10);
+/** "05.10.26", day first. */
+const fmt = (d: Date) => `${d.toISOString().slice(8, 10)}.${d.toISOString().slice(5, 7)}.${d.toISOString().slice(2, 4)}`;
 
 /** The week in plain facts, built from the data with no AI involved. */
 export async function weeklyFacts(end = new Date()) {

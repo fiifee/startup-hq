@@ -56,9 +56,20 @@ export function daysUntil(d: Date, viewerTz: string, allDay = false, now = new D
   return Math.round((Date.parse(ymd(d, viewerTz, allDay)) - Date.parse(ymd(now, viewerTz))) / 86_400_000);
 }
 
-/** "Sat 24 Oct", in the viewer's zone (all-day: the event's own date). */
+/** Weekday, day, month and two-digit year of a moment, in the viewer's zone (all-day: the event's own date). */
+export function dayParts(d: Date, viewerTz: string, allDay = false) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: allDay ? "UTC" : viewerTz, weekday: "short", day: "2-digit", month: "2-digit", year: "2-digit" })
+      .formatToParts(d)
+      .map((x) => [x.type, x.value]),
+  );
+  return { weekday: p.weekday as string, day: p.day as string, month: p.month as string, year: p.year as string };
+}
+
+/** "Sat 24.10.26", day first. */
 export function formatDay(d: Date, viewerTz: string, allDay = false) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: allDay ? "UTC" : viewerTz, weekday: "short", day: "numeric", month: "short" }).format(d);
+  const p = dayParts(d, viewerTz, allDay);
+  return `${p.weekday} ${p.day}.${p.month}.${p.year}`;
 }
 
 /** City part of an IANA zone: "Europe/Tallinn" → "Tallinn". */
@@ -73,7 +84,7 @@ export function tzCity(tz: string) {
 export function formatWhen(d: Date, allDay: boolean, viewerTz: string, eventTz?: string) {
   const day = formatDay(d, viewerTz, allDay);
   if (allDay) return { main: day, local: null as string | null };
-  const main = `${day}, ${hm(d, viewerTz)}`;
+  const main = `${day} ${hm(d, viewerTz)}`;
   const local = eventTz && eventTz !== viewerTz && hm(d, eventTz) !== hm(d, viewerTz) ? `${hm(d, eventTz)} ${tzCity(eventTz)}` : null;
   return { main, local };
 }

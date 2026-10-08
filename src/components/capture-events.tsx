@@ -3,6 +3,7 @@
 import { AlertTriangle, Link2, Video, X } from "lucide-react";
 import { cleanLinks, isJoinLink, type EventLink } from "@/lib/links";
 import { COMMON_TZ, formatWhen, parseWhen, tzCity } from "@/lib/time";
+import { DateInput, TimeInput } from "./date-input";
 import { IMPORTANCE_META, KIND_LABEL } from "./ui";
 
 export type DraftEvent = {
@@ -54,12 +55,12 @@ export function EventDrafts({ drafts, setDrafts, userTz }: { drafts: DraftEvent[
               <input value={d.title} onChange={(e) => update(i, { title: e.target.value })} aria-label="Title" className={`${field} flex-1 font-medium`} />
             </div>
             <div className="flex flex-wrap gap-1.5 items-center pl-6">
-              <input type="date" value={d.date} onChange={(e) => update(i, { date: e.target.value })} aria-label="Date" className={field} />
-              <input type="time" value={d.time} onChange={(e) => update(i, { time: e.target.value })} aria-label="Start time" className={field} />
+              <DateInput value={d.date} onChange={(e) => update(i, { date: e.target.value })} aria-label="Date" className={`${field} w-[110px]`} />
+              <TimeInput value={d.time} onChange={(e) => update(i, { time: e.target.value })} aria-label="Start time" className={`${field} w-[64px]`} />
               {d.time && (
                 <>
                   <span className="text-ink-3 text-sm">–</span>
-                  <input type="time" value={d.endTime} onChange={(e) => update(i, { endTime: e.target.value })} aria-label="End time" className={field} />
+                  <TimeInput value={d.endTime} onChange={(e) => update(i, { endTime: e.target.value })} aria-label="End time" className={`${field} w-[64px]`} />
                   <select value={d.timezone} onChange={(e) => update(i, { timezone: e.target.value })} aria-label="Time zone" className={field}>
                     {zones.map((z) => <option key={z} value={z}>{tzCity(z)}</option>)}
                   </select>

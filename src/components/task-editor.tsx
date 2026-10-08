@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Link2, Trash2, X } from "lucide-react";
 import { commentAction, deleteTaskAction, linkDriveAction, unlinkDriveAction, updateTaskAction } from "@/app/actions";
+import { DateInput } from "./date-input";
 import { Byline, type Founder } from "./people";
 import { btnDanger, btnPrimary, btnSmall, inputCls, labelCls, selectCls, STATUS_META, textareaCls } from "./ui";
 import { useAction } from "./use-action";
@@ -88,7 +89,7 @@ export function TaskEditor({ task, founders, goals }: { task: Task; founders: Fo
         </div>
         <div>
           <label htmlFor="due" className={labelCls}>Due</label>
-          <input id="due" type="date" value={f.due} onChange={set("due")} className={`${selectCls} w-full`} />
+          <DateInput id="due" value={f.due} onChange={set("due")} className={`${selectCls} w-full`} />
         </div>
         <div>
           <label htmlFor="priority" className={labelCls}>Priority</label>

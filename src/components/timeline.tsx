@@ -8,7 +8,8 @@ import {
   addEventNoteAction, confirmEventsAction, createEventAction, editEventNoteAction, setAttendanceAction, syncTimezoneAction, updateEventAction,
 } from "@/app/actions";
 import { cleanLinks, eventLinks, isJoinLink, type EventLink } from "@/lib/links";
-import { COMMON_TZ, daysUntil, formatDay, formatWhen, hm, inputValues, tzCity } from "@/lib/time";
+import { COMMON_TZ, dayParts, daysUntil, formatWhen, hm, inputValues, tzCity } from "@/lib/time";
+import { DateInput, TimeInput } from "./date-input";
 import { Markdown } from "./markdown";
 import { Avatar, Byline, firstName, type Founder } from "./people";
 import { btnPrimary, btnSecondary, IMPORTANCE_META, inputCls, KIND_LABEL, labelCls, selectCls, textareaCls } from "./ui";
@@ -153,9 +154,16 @@ export function EventRow({ event: e, founders, me, tz }: { event: EventView; fou
   return (
     <li className={`flex gap-3 px-4 py-3 ${e.textAgent ? "ai-tint" : "human-mark"} ${e.importance === "mandatory" ? "border-l-danger!" : ""}`} style={{ ["--who" as string]: color }}>
       <div className="w-12 shrink-0 text-center leading-tight pt-0.5">
-        <div className="text-[11px] uppercase tracking-wide text-ink-3">{formatDay(e.startsAt, tz, e.allDay).split(" ")[0]}</div>
-        <div className="text-xl font-semibold tabular">{formatDay(e.startsAt, tz, e.allDay).split(" ")[1]}</div>
-        <div className="text-[11px] text-ink-3">{formatDay(e.startsAt, tz, e.allDay).split(" ")[2]}</div>
+        {(() => {
+          const p = dayParts(e.startsAt, tz, e.allDay);
+          return (
+            <>
+              <div className="text-[11px] uppercase tracking-wide text-ink-3">{p.weekday}</div>
+              <div className="text-lg font-semibold tabular">{p.day}.{p.month}</div>
+              <div className="text-[11px] text-ink-3 tabular">{p.year}</div>
+            </>
+          );
+        })()}
       </div>
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
@@ -257,11 +265,11 @@ function EventFields({ f, set }: { f: FormState; set: (k: keyof FormState) => (e
         </div>
         <div>
           <label className={labelCls}>Date</label>
-          <input type="date" value={f.date} onChange={set("date")} required className={`${selectCls} w-full`} />
+          <DateInput value={f.date} onChange={set("date")} required aria-label="Date" className={`${selectCls} w-full`} />
         </div>
         <div>
           <label className={labelCls}>Time <span className="text-ink-3 font-normal">(optional)</span></label>
-          <input type="time" value={f.time} onChange={set("time")} className={`${selectCls} w-full`} />
+          <TimeInput value={f.time} onChange={set("time")} aria-label="Time" className={`${selectCls} w-full`} />
         </div>
       </div>
       {f.time && (

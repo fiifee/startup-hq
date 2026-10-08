@@ -24,18 +24,19 @@ export const h2Cls = "text-base font-semibold";
 /** Founder colours. #1d5fa8 is Santorini blue, the blue of the Cycladic domes. */
 export const FOUNDER_COLORS = ["#2c6e52", "#1d5fa8", "#4a6fa5", "#b5562b", "#8a4fa3", "#b3264f", "#3f8580", "#8a6d00"];
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** "4 Oct 2026": unambiguous for Estonian and English readers alike. */
+/** "04.10.26" (or "04.10" without the year): day first, as the team writes dates. */
 export function formatDate(date: Date | string | null | undefined, withYear = true): string {
   if (!date) return "";
   const d = new Date(date);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}${withYear ? ` ${d.getFullYear()}` : ""}`;
+  return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}${withYear ? `.${String(d.getFullYear()).slice(2)}` : ""}`;
 }
 
+/** "04.10.26 14:05", 24-hour clock. */
 export function formatDateTime(date: Date | string): string {
   const d = new Date(date);
-  return `${formatDate(d, d.getFullYear() !== new Date().getFullYear())}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${formatDate(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 export function relative(date: Date | string): string {

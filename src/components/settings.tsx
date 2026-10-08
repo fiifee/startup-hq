@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Check, Copy, Trash2 } from "lucide-react";
 import {
   addFounderAction, createApiTokenAction, deleteAiKeyAction, disconnectDriveAction, removeFounderAction, revokeApiTokenAction,
-  revokeGrantAction, saveAiKeyAction, setAiModelAction, setAutoAIAction, setDriveFolderAction, setMeetingFormatAction, updateProfileAction,
+  pinTimezoneAction, revokeGrantAction, saveAiKeyAction, setAiModelAction, setAutoAIAction, setDriveFolderAction, setMeetingFormatAction, updateProfileAction,
 } from "@/app/actions";
+import { COMMON_TZ, tzCity } from "@/lib/time";
 import { Avatar, type Founder } from "./people";
 import { btnDanger, btnPrimary, btnSmall, FOUNDER_COLORS, hintCls, inputCls, labelCls, relative, selectCls } from "./ui";
 import { useAction } from "./use-action";
@@ -299,5 +300,35 @@ export function SummaryFormat({ sections }: { sections: string[] }) {
       <p className={hintCls}>Every AI fills exactly these, in the language of the meeting.</p>
       <button disabled={pending || !dirty} className={btnPrimary}>Save format</button>
     </form>
+  );
+}
+
+const noopSubscribe = () => () => {};
+
+/** Times follow the browser's location unless a zone is pinned here. */
+export function TimezonePicker({ timezone, pinned }: { timezone: string; pinned: boolean }) {
+  const { pending, run } = useAction();
+  // Read in the browser only: the server's zone (UTC) would mismatch on hydration.
+  const browserTz = useSyncExternalStore(noopSubscribe, () => Intl.DateTimeFormat().resolvedOptions().timeZone, () => null);
+  const options = [...new Set([timezone, ...(browserTz ? [browserTz] : []), ...COMMON_TZ])];
+  return (
+    <div className="space-y-3 text-sm">
+      <p>
+        Times are shown in <strong>{tzCity(timezone)}</strong> time.{" "}
+        {pinned ? "You fixed this zone." : "It follows where your browser is, so it changes when you travel."}
+      </p>
+      <div className="flex gap-2 flex-wrap items-center">
+        <select
+          aria-label="Time zone"
+          value={pinned ? timezone : ""}
+          disabled={pending}
+          onChange={(e) => run(() => pinTimezoneAction(e.target.value || null, browserTz ?? undefined), "Time zone saved")}
+          className={selectCls}
+        >
+          <option value="">Automatic{browserTz ? ` (${tzCity(browserTz)})` : ""}</option>
+          {options.map((z) => <option key={z} value={z}>{tzCity(z)} · {z}</option>)}
+        </select>
+      </div>
+    </div>
   );
 }

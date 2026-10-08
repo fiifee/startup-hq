@@ -45,7 +45,8 @@ export function isRevertible(a: { entityType: string; action: string; revertedAt
     (a.entityType === "task" && (a.action === "updated" || a.action === "created")) ||
     (a.entityType === "block" && ["updated", "created", "deleted"].includes(a.action)) ||
     (a.entityType === "decision" && (a.action === "created" || a.action === "updated")) ||
-    (a.entityType === "goal" && a.action === "updated")
+    (a.entityType === "goal" && a.action === "updated") ||
+    (a.entityType === "event" && (a.action === "updated" || a.action === "created"))
   );
 }
 
@@ -88,6 +89,29 @@ export async function revertActivity(actor: Actor, activityId: string) {
             content: before.content as string,
             byId: before.byId as string | null,
             agent: before.agent as string | null,
+          },
+        });
+      }
+    } else if (a.entityType === "event") {
+      if (a.action === "created") {
+        await tx.event.update({ where: { id: a.entityId }, data: { status: "dismissed" } });
+      } else {
+        await tx.event.update({
+          where: { id: a.entityId },
+          data: {
+            title: before.title as string,
+            description: before.description as string,
+            kind: before.kind as string,
+            importance: before.importance as string,
+            status: before.status as string,
+            location: before.location as string,
+            url: before.url as string,
+            allDay: before.allDay as boolean,
+            timezone: before.timezone as string,
+            startsAt: new Date(before.startsAt as string),
+            endsAt: before.endsAt ? new Date(before.endsAt as string) : null,
+            textById: before.textById as string | null,
+            textAgent: before.textAgent as string | null,
           },
         });
       }

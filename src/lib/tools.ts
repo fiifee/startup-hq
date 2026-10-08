@@ -11,12 +11,14 @@ import { addAgendaItem, getAgenda, setAgendaItemDone } from "./services/agenda";
 import { findDecision, listDecisions, recordDecision, updateDecision } from "./services/decisions";
 import { createDoc, linkFile, listFolder, readFile, searchDrive } from "./services/drive";
 import { briefForAI, briefStaleness, markBriefReviewed } from "./services/brief";
+import { addEventNote, createEvent, getEventDetail, listEvents, setAttendance, updateEvent } from "./services/events";
 import { createGoal, getGoalDetail, listGoals, updateGoal } from "./services/goals";
+import { daysUntil, parseWhen, whenText } from "./time";
 import { createMeeting, getMeeting, listMeetings, saveMeetingOutcome, updateMeeting } from "./services/meetings";
 import { appendToNote, createNote, deleteBlock, editBlock, getNote, listNotes, noteForAI, toggleChecklistItem, updateNote } from "./services/notes";
 import { getMeetingFormat } from "./services/format";
 import { workspaceOverview } from "./services/overview";
-import { actorName, listFounders } from "./services/people";
+import { actorName, listFounders, userTz } from "./services/people";
 import { searchAll } from "./services/search";
 import { listOpenSuggestions } from "./services/suggestions";
 import { addTaskComment, createTask, getTaskDetail, listTasks, updateTask } from "./services/tasks";
@@ -249,6 +251,206 @@ export const TOOLS: ToolDef[] = [
     input: {},
     run: async () => {
       await markBriefReviewed();
+      return { ok: true };
+    },
+  }),
+
+  // ---- Timeline: events, deadlines, opportunities
+  def({
+    name: "list_events",
+    title: "Timeline",
+    description:
+      "Upcoming events, deadlines and opportunities with who is going. `when` is in your user's time zone, with the local time where the event happens if different. include_proposed adds ones waiting for confirmation; past_days adds recent past events.",
+    input: {
+      days_ahead: z.number().int().min(1).max(365).optional().describe("Default 60"),
+      past_days: z.number().int().min(0).max(365).optional(),
+      include_proposed: z.boolean().optional(),
+      importance: z.enum(["mandatory", "recommended", "optional"]).optional(),
+    },
+    readOnly: true,
+    run: async (actor, a) => {
+      const tz = await userTz(actor.userId);
+      const now = Date.now();
+      const events = await listEvents({
+        from: new Date(now - (a.past_days ?? 0) * 86_400_000),
+        to: new Date(now + (a.days_ahead ?? 60) * 86_400_000),
+        status: a.include_proposed ? ["confirmed", "proposed"] : ["confirmed"],
+        importance: a.importance,
+      });
+      const founders = await listFounders();
+      const who = (id: string) => founders.find((f) => f.id === id)?.name ?? id;
+      return events.map((e) => ({
+        ref: `E-${e.number}`,
+        title: e.title,
+        kind: e.kind,
+        importance: e.importance,
+        when: whenText(e.startsAt, e.allDay, tz, e.timezone),
+        date: e.startsAt.toISOString(),
+        timezone: e.timezone,
+        inDays: daysUntil(e.startsAt, tz, e.allDay),
+        status: e.status,
+        going: e.attendance.filter((x) => x.status === "going").map((x) => who(x.userId)),
+        maybe: e.attendance.filter((x) => x.status === "maybe").map((x) => who(x.userId)),
+        notGoing: e.attendance.filter((x) => x.status === "no").map((x) => who(x.userId)),
+        notes: e._count.notes,
+      }));
+    },
+  }),
+  def({
+    name: "get_event",
+    title: "Get event",
+    description: "An event with its details, attendance, attendees' notes and prep tasks.",
+    input: { event: z.union([z.string(), z.number()]).describe('"E-4", 4 or the id') },
+    readOnly: true,
+    run: async (actor, a) => {
+      const tz = await userTz(actor.userId);
+      const e = await getEventDetail(a.event);
+      const name = await namer();
+      const founders = await listFounders();
+      return {
+        ref: `E-${e.number}`,
+        title: e.title,
+        kind: e.kind,
+        importance: e.importance,
+        status: e.status,
+        when: whenText(e.startsAt, e.allDay, tz, e.timezone),
+        ends: e.endsAt ? whenText(e.endsAt, e.allDay, tz, e.timezone) : null,
+        timezone: e.timezone,
+        location: e.location,
+        url: e.url,
+        description: e.description,
+        source: e.source,
+        sourceQuote: e.sourceQuote,
+        attendance: e.attendance.map((x) => ({ who: founders.find((f) => f.id === x.userId)?.name, status: x.status })),
+        notes: e.notes.map((n) => ({ by: name(n.byId, n.agent), body: n.body })),
+        prepTasks: e.tasks.map((t) => ({ ref: `T-${t.number}`, title: t.title, status: t.status })),
+      };
+    },
+  }),
+  def({
+    name: "propose_event",
+    title: "Propose event",
+    description:
+      "Propose an event, deadline or opportunity you found (e.g. in a WhatsApp group). It waits on Home for a person to confirm or dismiss; never confirm your own proposals. Duplicates (same day, similar title) are detected and returned instead of added. Use the language of the source for the title.",
+    input: {
+      title: z.string().min(1),
+      kind: z.enum(["event", "deadline", "opportunity"]).describe("deadline = something due; opportunity = a call/programme with an apply-by date (put that date as `when`)"),
+      importance: z.enum(["mandatory", "recommended", "optional"]).describe("mandatory only if the source says it is compulsory/required for the team"),
+      when: z.string().describe('"YYYY-MM-DD" (all day) or "YYYY-MM-DD HH:MM", local time where it happens'),
+      timezone: z.string().optional().describe('IANA zone where it happens, e.g. "Europe/Tallinn", "Europe/Berlin". Default: your user\'s zone. `when` is wall-clock time there.'),
+      ends: z.string().optional(),
+      location: z.string().optional(),
+      url: z.string().optional(),
+      description: z.string().optional().describe("What it is and what to do, 1-3 sentences"),
+      source: z.string().describe('Where you saw it, e.g. "WhatsApp · External Events & Opportunities, 8 Oct"'),
+      source_quote: z.string().optional().describe("The one line that announces it, verbatim, max ~300 characters"),
+    },
+    run: async (actor, a) => {
+      const tz = a.timezone ?? (await userTz(actor.userId));
+      const w = parseWhen(a.when, tz);
+      const r = await createEvent(actor, {
+        timezone: tz,
+        title: a.title,
+        kind: a.kind,
+        importance: a.importance,
+        startsAt: w.date,
+        allDay: w.allDay,
+        endsAt: a.ends ? parseWhen(a.ends, tz).date : null,
+        location: a.location,
+        url: a.url,
+        description: a.description,
+        source: a.source,
+        sourceQuote: a.source_quote,
+        proposed: true,
+      });
+      return { ref: `E-${r.event.number}`, status: r.event.status, ...(r.duplicate ? { note: "Already on the timeline; not added again." } : {}) };
+    },
+  }),
+  def({
+    name: "create_event",
+    title: "Add event",
+    description: "Add an event, deadline or opportunity directly, when a user asks you to.",
+    input: {
+      title: z.string().min(1),
+      kind: z.enum(["event", "deadline", "opportunity"]).optional(),
+      importance: z.enum(["mandatory", "recommended", "optional"]).optional(),
+      when: z.string().describe('"YYYY-MM-DD" or "YYYY-MM-DD HH:MM", local time where it happens'),
+      timezone: z.string().optional().describe('IANA zone where it happens, e.g. "Europe/Tallinn", "Europe/Berlin". Default: your user\'s zone. `when` is wall-clock time there.'),
+      ends: z.string().optional(),
+      location: z.string().optional(),
+      url: z.string().optional(),
+      description: z.string().optional(),
+    },
+    run: async (actor, a) => {
+      const tz = a.timezone ?? (await userTz(actor.userId));
+      const w = parseWhen(a.when, tz);
+      const r = await createEvent(actor, { ...a, timezone: tz, startsAt: w.date, allDay: w.allDay, endsAt: a.ends ? parseWhen(a.ends, tz).date : null });
+      return { ref: `E-${r.event.number}`, ...(r.duplicate ? { note: "Already on the timeline." } : {}) };
+    },
+  }),
+  def({
+    name: "update_event",
+    title: "Update event",
+    description: "Change an event's date, importance, kind, place, link or wording, or confirm/dismiss a proposed one when a user asks.",
+    input: {
+      event: z.union([z.string(), z.number()]),
+      title: z.string().optional(),
+      kind: z.enum(["event", "deadline", "opportunity"]).optional(),
+      importance: z.enum(["mandatory", "recommended", "optional"]).optional(),
+      when: z.string().optional(),
+      timezone: z.string().optional().describe("IANA zone; `when` is read in it (default: the event's current zone)"),
+      ends: z.string().nullable().optional(),
+      location: z.string().optional(),
+      url: z.string().optional(),
+      description: z.string().optional(),
+      status: z.enum(["proposed", "confirmed", "dismissed"]).optional(),
+      reason: z.string().optional(),
+    },
+    run: async (actor, a) => {
+      const current = await getEventDetail(a.event);
+      const tz = a.timezone ?? current.timezone;
+      const w = a.when ? parseWhen(a.when, tz) : null;
+      const { event: e, suggestionId } = await updateEvent(
+        actor,
+        a.event,
+        {
+          title: a.title,
+          kind: a.kind,
+          importance: a.importance,
+          ...(w ? { startsAt: w.date, allDay: w.allDay } : {}),
+          ...(a.timezone ? { timezone: a.timezone } : {}),
+          ...(a.ends !== undefined ? { endsAt: a.ends ? parseWhen(a.ends, tz).date : null } : {}),
+          location: a.location,
+          url: a.url,
+          description: a.description,
+          status: a.status,
+        },
+        a.reason,
+      );
+      return { ref: `E-${e.number}`, status: e.status, ...(suggestionId ? { note: "A person wrote this wording; yours was saved as a suggestion." } : {}) };
+    },
+  }),
+  def({
+    name: "set_attendance",
+    title: "Set attendance",
+    description: "Record whether a user is going to an event: going, maybe, no (or unset). Default is your own user.",
+    input: {
+      event: z.union([z.string(), z.number()]),
+      status: z.enum(["going", "maybe", "no", "unset"]),
+      user: z.string().optional().describe('"me" (default) or a user\'s name/email, only when they told you'),
+    },
+    run: async (actor, a) => {
+      await setAttendance(actor, a.event, a.status, a.user ?? "me");
+      return { ok: true };
+    },
+  }),
+  def({
+    name: "add_event_note",
+    title: "Add event note",
+    description: "Add a note about an event (what was learned, who was met, follow-ups) on behalf of your user.",
+    input: { event: z.union([z.string(), z.number()]), body: z.string().min(1) },
+    run: async (actor, a) => {
+      await addEventNote(actor, a.event, a.body);
       return { ok: true };
     },
   }),

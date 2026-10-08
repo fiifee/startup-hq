@@ -3,7 +3,8 @@ import { db } from "../db";
 import { driveStatus } from "../google";
 import { recentActivity } from "./activity";
 import { briefForAI } from "./brief";
-import { actorName, listFounders } from "./people";
+import { whenText } from "../time";
+import { actorName, listFounders, userTz } from "./people";
 
 /** A compact picture of the whole workspace: the first thing an AI should read. */
 export async function workspaceOverview(actor: Actor) {
@@ -25,6 +26,14 @@ export async function workspaceOverview(actor: Actor) {
     driveStatus(),
     briefForAI(),
   ]);
+  const [tz, events] = await Promise.all([
+    userTz(actor.userId),
+    db.event.findMany({
+      where: { status: { in: ["confirmed", "proposed"] }, startsAt: { gte: new Date(Date.now() - 86_400_000), lte: new Date(Date.now() + 30 * 86_400_000) } },
+      include: { attendance: true },
+      orderBy: { startsAt: "asc" },
+    }),
+  ]);
   const name = (byId: string | null, agent: string | null) => actorName(founders, byId, agent);
   return {
     you: founders.find((f) => f.id === actor.userId)?.email ?? null,
@@ -39,6 +48,16 @@ export async function workspaceOverview(actor: Actor) {
     stillToDecide: decisions.filter((d) => d.status === "open").map((d) => ({ ref: `D-${d.number}`, question: d.title })),
     recentMeetings: meetings.map((m) => ({ id: m.id, title: m.title, date: m.date.toISOString().slice(0, 10), summarised: !!m.processedAt })),
     nextAgenda: agenda.map((a) => a.text),
+    yourTimezone: tz,
+    comingUp: events.map((e) => ({
+      ref: `E-${e.number}`,
+      title: e.title,
+      kind: e.kind,
+      importance: e.importance,
+      when: whenText(e.startsAt, e.allDay, tz, e.timezone),
+      proposed: e.status === "proposed",
+      going: e.attendance.filter((x) => x.status === "going").map((x) => founders.find((f) => f.id === x.userId)?.name ?? "?"),
+    })),
     openSuggestions: suggestions,
     drive: drive.connected ? { folder: drive.folderName } : "not connected",
     lastWeek: activity.map((a) => `${a.createdAt.toISOString().slice(0, 10)} ${name(a.byId, a.agent)}: ${a.summary}`),

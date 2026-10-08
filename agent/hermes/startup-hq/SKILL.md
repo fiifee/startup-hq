@@ -64,8 +64,33 @@ Meetings are held in Estonian on Discord; Raiko produces the transcripts.
 - "Read the pitch deck in Drive" → `drive_search`, then `drive_read`.
 - Progress notes on a task → `comment_on_task` (append-only, never overwritten).
 
+## Timeline: dates from WhatsApp
+
+The HFE WhatsApp digest (every 15 min) is where dates turn up. For each message that
+announces an **event, a deadline or an opportunity with an apply-by date**:
+
+1. `scripts/hq.sh list_events '{"include_proposed": true, "past_days": 7}'` and skip it if
+   it is already there (the server also drops same-day duplicates with similar titles).
+2. `scripts/hq.sh propose_event` with:
+   - `title` in the language of the message, short and specific ("HFE Demo Day").
+   - `kind`: `event` (something to attend), `deadline` (something due),
+     `opportunity` (a call/programme; `when` = the apply-by date).
+   - `importance`: `mandatory` only when the message says attendance/submission is
+     compulsory or required for the teams; `recommended` when organisers urge it;
+     otherwise `optional`.
+   - `when`: `"YYYY-MM-DD"` (all day) or `"YYYY-MM-DD HH:MM"` as written in the message,
+     and `timezone` where it happens (HFE events: `Europe/Tallinn`; online events: the
+     organiser's zone if stated). Never convert times yourself.
+   - `location`, `url` if given; `description`: 1-2 sentences on what it is / what to do.
+   - `source`: `"WhatsApp · <chat name>, <d Mon>"`; `source_quote`: the one announcing
+     line, verbatim, at most ~300 characters. No other chat content.
+3. Never confirm your own proposals; a person does that in the app. Don't propose
+   chit-chat, past events, or vague "soon" with no date.
+4. Mention in the digest which events you proposed (E-numbers).
+
 ## Without MCP
 
-Every tool is also plain HTTP: `POST $STARTUP_HQ_URL/api/v1/tools/<tool_name>` with
+`scripts/hq.sh <tool> '<json>'` wraps this (needs `STARTUP_HQ_URL` and `STARTUP_HQ_TOKEN`
+in `~/.hermes/.env`). Every tool is also plain HTTP: `POST $STARTUP_HQ_URL/api/v1/tools/<tool_name>` with
 `Authorization: Bearer $STARTUP_HQ_TOKEN` and the tool's arguments as JSON.
 `GET $STARTUP_HQ_URL/api/v1/tools` lists them with their schemas.

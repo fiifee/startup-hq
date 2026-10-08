@@ -4,6 +4,7 @@ import { Markdown } from "@/components/markdown";
 import { Avatar, Byline, firstName } from "@/components/people";
 import { SuggestionList } from "@/components/suggestion-list";
 import { ConfirmAll, QuickAddTask, TaskList } from "@/components/tasks";
+import { ConfirmAllEvents, ImportanceChip, ProposedEvent } from "@/components/timeline";
 import { cardCls, formatDate, h1Cls, h2Cls } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -11,6 +12,7 @@ import { recentActivity } from "@/lib/services/activity";
 import { briefStaleness, briefNote } from "@/lib/services/brief";
 import { listFounders } from "@/lib/services/people";
 import { listOpenSuggestions } from "@/lib/services/suggestions";
+import { formatWhen } from "@/lib/time";
 import { daysAgo, feedItems } from "@/lib/view";
 
 /**
@@ -20,7 +22,7 @@ import { daysAgo, feedItems } from "@/lib/view";
 export default async function Home() {
   const user = await requireUser();
   const brief = await briefNote();
-  const [founders, mine, proposed, suggestions, activity, openByPerson, agenda, lastMeeting, staleness, weekly] = await Promise.all([
+  const [founders, mine, proposed, suggestions, activity, openByPerson, agenda, lastMeeting, staleness, weekly, proposedEvents, comingUp] = await Promise.all([
     listFounders(),
     db.task.findMany({
       where: { assigneeId: user.id, status: { in: ["todo", "doing", "blocked"] } },
@@ -40,12 +42,19 @@ export default async function Home() {
       orderBy: { createdAt: "desc" },
       include: { blocks: { orderBy: { position: "asc" }, take: 3 } },
     }),
+    db.event.findMany({ where: { status: "proposed" }, include: { attendance: true }, orderBy: { startsAt: "asc" } }),
+    db.event.findMany({
+      where: { status: "confirmed", startsAt: { gte: daysAgo(0.5) } },
+      include: { attendance: true },
+      orderBy: { startsAt: "asc" },
+      take: 4,
+    }),
   ]);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const count = (id: string, status?: string) =>
     openByPerson.filter((g) => g.assigneeId === id && (!status || g.status === status)).reduce((s, g) => s + g._count, 0);
-  const needsYou = proposed.length + suggestions.length;
+  const needsYou = proposed.length + suggestions.length + proposedEvents.length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -85,6 +94,17 @@ export default async function Home() {
               <TaskList tasks={proposed} founders={founders} />
             </div>
           )}
+          {proposedEvents.length > 0 && (
+            <div className={`${cardCls} border-dashed`}>
+              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
+                <p className="text-sm text-ink-2">Dates found in chats. Confirm to put them on the timeline.</p>
+                <ConfirmAllEvents refs={proposedEvents.map((e) => String(e.number))} />
+              </div>
+              <ul className="divide-y divide-line">
+                {proposedEvents.map((e) => <ProposedEvent key={e.id} event={e} founders={founders} tz={user.timezone} />)}
+              </ul>
+            </div>
+          )}
           <SuggestionList suggestions={suggestions} founders={founders} />
         </section>
       )}
@@ -109,6 +129,30 @@ export default async function Home() {
         </div>
 
         <aside className="space-y-6">
+          <section className={`${cardCls} p-4 space-y-2`}>
+            <div className="flex items-center justify-between">
+              <h2 className={h2Cls}>Coming up</h2>
+              <Link href="/timeline" className="text-sm text-ink-2 hover:text-ink">Timeline →</Link>
+            </div>
+            {comingUp.length === 0 && <p className="text-sm text-ink-3">Nothing on the timeline.</p>}
+            <ul className="space-y-2">
+              {comingUp.map((e) => {
+                const mine = e.attendance.find((a) => a.userId === user.id)?.status;
+                return (
+                  <li key={e.id} className="text-sm">
+                    <Link href={`/timeline/${e.number}`} className="hover:underline font-medium">{e.title}</Link>
+                    <div className="flex items-center gap-2 flex-wrap text-xs text-ink-2 mt-0.5">
+                      <span>{formatWhen(e.startsAt, e.allDay, user.timezone, e.timezone).main}</span>
+                      {e.importance === "mandatory" && <ImportanceChip importance="mandatory" />}
+                      <span className={mine ? "text-ink-3" : e.importance === "mandatory" ? "text-danger" : "text-ink-3"}>
+                        {mine === "going" ? "You're going" : mine === "maybe" ? "Maybe" : mine === "no" ? "Not going" : "No answer yet"}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
           <section className={`${cardCls} p-4 space-y-2`}>
             <div className="flex items-center justify-between">
               <h2 className={h2Cls}>Next meeting</h2>

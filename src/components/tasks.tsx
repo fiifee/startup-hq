@@ -95,7 +95,7 @@ export function ConfirmAll({ refs }: { refs: string[] }) {
   );
 }
 
-export function QuickAddTask({ founders, me, meetingId, goal }: { founders: Founder[]; me: string; meetingId?: string; goal?: string }) {
+export function QuickAddTask({ founders, me, meetingId, goal, eventId }: { founders: Founder[]; me: string; meetingId?: string; goal?: string; eventId?: string }) {
   const { pending, run } = useAction();
   const [title, setTitle] = useState("");
   const [assignee, setAssignee] = useState(me);
@@ -106,7 +106,7 @@ export function QuickAddTask({ founders, me, meetingId, goal }: { founders: Foun
         e.preventDefault();
         if (!title.trim()) return;
         run(
-          () => createTaskAction({ title, assignee: assignee || null, due: due || null, meetingId, goal }),
+          () => createTaskAction({ title, assignee: assignee || null, due: due || null, meetingId, goal, eventId }),
           undefined,
           () => {
             setTitle("");

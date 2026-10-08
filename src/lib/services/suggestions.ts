@@ -8,11 +8,13 @@ export async function listOpenSuggestions() {
   const taskIds = rows.filter((r) => r.entityType === "task").map((r) => r.entityId);
   const goalIds = rows.filter((r) => r.entityType === "goal").map((r) => r.entityId);
   const decisionIds = rows.filter((r) => r.entityType === "decision").map((r) => r.entityId);
-  const [blocks, tasks, goals, decisions] = await Promise.all([
+  const eventIds = rows.filter((r) => r.entityType === "event").map((r) => r.entityId);
+  const [blocks, tasks, goals, decisions, events] = await Promise.all([
     db.block.findMany({ where: { id: { in: blockIds } }, include: { note: { select: { id: true, title: true, kind: true } } } }),
     db.task.findMany({ where: { id: { in: taskIds } } }),
     db.goal.findMany({ where: { id: { in: goalIds } } }),
     db.decision.findMany({ where: { id: { in: decisionIds } } }),
+    db.event.findMany({ where: { id: { in: eventIds } } }),
   ]);
   return rows.map((s) => ({
     ...s,
@@ -20,6 +22,7 @@ export async function listOpenSuggestions() {
     task: tasks.find((t) => t.id === s.entityId) ?? null,
     goal: goals.find((g) => g.id === s.entityId) ?? null,
     decision: decisions.find((d) => d.id === s.entityId) ?? null,
+    event: events.find((e) => e.id === s.entityId) ?? null,
   }));
 }
 
@@ -69,6 +72,20 @@ export async function resolveSuggestion(actor: Actor, id: string, accept: boolea
           },
         });
         await logActivity(tx, actor, "goal", goal.id, "updated", `Accepted AI wording for G-${goal.number}`, goal);
+      }
+    }
+    if (accept && s.entityType === "event") {
+      const e = await tx.event.findUnique({ where: { id: s.entityId } });
+      if (e) {
+        await tx.event.update({
+          where: { id: e.id },
+          data: {
+            ...(typeof proposed.title === "string" ? { title: proposed.title } : {}),
+            ...(typeof proposed.description === "string" ? { description: proposed.description } : {}),
+            ...by(author, "text"),
+          },
+        });
+        await logActivity(tx, actor, "event", e.id, "updated", `Accepted AI wording for E-${e.number}`, e);
       }
     }
     if (accept && s.entityType === "decision") {

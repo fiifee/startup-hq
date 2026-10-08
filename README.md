@@ -19,9 +19,13 @@ Menus are English; AIs write in whatever language the user writes to them in.
 - **Company brief.** A story people and AIs keep up to date, next to a live "right now"
   computed from goals, tasks and decisions. It shows how many changes happened since the
   story was last updated; the Monday cron refreshes it with the volunteered key.
-- **Five places**: Home (inbox, what changed, weekly summary), Tasks (list or board, group
-  by goal), Meetings (next agenda on top), Brief (story, roadmap, decisions), Docs (notes
-  and Drive).
+- **Six places**: Home (inbox, what changed, weekly summary), Tasks (list or board, group
+  by goal), Meetings (next agenda on top), Timeline (events, deadlines, opportunities),
+  Brief (story, roadmap, decisions), Docs (notes and Drive).
+- **Timeline**: Hermes proposes dates it finds in WhatsApp (`agent/hermes/startup-hq`);
+  people confirm, mark Going / Maybe / Can't, and write notes afterwards. Events are
+  Mandatory / Recommended / Optional. Times follow each user's location (browser time
+  zone, pinnable in Settings); each event keeps the zone it happens in.
 - **Capture** (⌘K / Ctrl+K): one box for a task, a note, a pasted transcript or a question.
 - **Background work**: per user, opt in; on their own key it summarises new transcripts,
   keeps the brief current and writes the Monday summary. Meeting summaries follow one

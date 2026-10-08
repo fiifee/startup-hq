@@ -1,6 +1,13 @@
 import type { Actor } from "../actor";
 import { db } from "../db";
 
+/** A user's time zone (Tallinn when unknown or for the system). */
+export async function userTz(userId: string | null) {
+  if (!userId) return "Europe/Tallinn";
+  const u = await db.user.findUnique({ where: { id: userId }, select: { timezone: true } });
+  return u?.timezone ?? "Europe/Tallinn";
+}
+
 export async function listFounders() {
   return db.user.findMany({ orderBy: { createdAt: "asc" } });
 }

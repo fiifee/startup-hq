@@ -1,4 +1,4 @@
-import { AiKeys, ApiTokens, AutoAIToggle, CodeBlock, DriveDisconnect, FolderPicker, Founders, Grants, ProfileForm, SummaryFormat } from "@/components/settings";
+import { AiKeys, ApiTokens, AutoAIToggle, CodeBlock, DriveDisconnect, FolderPicker, Founders, Grants, ProfileForm, SummaryFormat, TimezonePicker } from "@/components/settings";
 import { btnPrimary, btnSecondary, cardCls, h1Cls, h2Cls } from "@/components/ui";
 import { requestOrigin, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -97,6 +97,10 @@ export default async function SettingsPage(props: PageProps<"/settings">) {
 
       <Section id="profile" title="You">
         <ProfileForm user={user} />
+      </Section>
+
+      <Section id="timezone" title="Time zone">
+        <TimezonePicker timezone={user.timezone} pinned={user.timezonePinned} />
       </Section>
 
       <Section id="users" title="Users" intro={user.isOwner ? "Add people by their Google email. They sign in with Google." : undefined}>

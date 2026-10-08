@@ -26,6 +26,10 @@ model User {
   /// Let this user's own AI key do background work: summarise new transcripts,
   /// keep the brief current, write the Monday summary.
   autoAI    Boolean   @default(false)
+  /// IANA time zone, detected from the browser; times are shown in it.
+  timezone  String    @default("Europe/Tallinn")
+  /// True when the user picked a zone in Settings; otherwise it follows the browser.
+  timezonePinned Boolean @default(false)
   joinedAt  DateTime? // null until the founder signs in for the first time
   createdAt DateTime  @default(now())
 
@@ -136,6 +140,7 @@ model Task {
   tags        String[]
   meetingId   String?
   goalId      String?
+  eventId     String?
   completedAt DateTime?
 
   createdById String?
@@ -150,11 +155,71 @@ model Task {
   assignee User?         @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   meeting  Meeting?      @relation(fields: [meetingId], references: [id], onDelete: SetNull)
   goal     Goal?         @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  event    Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
   comments TaskComment[]
 
   @@index([status])
   @@index([goalId])
   @@index([assigneeId])
+}
+
+/// Something with a date outside the team's own meetings: an event, a deadline,
+/// or an opportunity with an apply-by date. Hermes proposes them from WhatsApp.
+model Event {
+  id           String            @id @default(cuid())
+  number       Int               @unique @default(autoincrement())
+  title        String
+  kind         String            @default("event") // event | deadline | opportunity
+  importance   String            @default("optional") // mandatory | recommended | optional
+  startsAt     DateTime
+  endsAt       DateTime?
+  allDay       Boolean           @default(false)
+  /// Where the event happens; its wall-clock time is entered in this zone.
+  timezone     String            @default("Europe/Tallinn")
+  location     String            @default("")
+  url          String            @default("")
+  description  String            @default("")
+  source       String            @default("") // "WhatsApp · External Events & Opportunities, 8 Oct"
+  sourceQuote  String            @default("")
+  status       String            @default("confirmed") // proposed | confirmed | dismissed
+  createdById  String?
+  createdAgent String?
+  textById     String?
+  textAgent    String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  attendance   EventAttendance[]
+  notes        EventNote[]
+  tasks        Task[]
+
+  @@index([startsAt])
+  @@index([status])
+}
+
+/// Who will go: going | maybe | no.
+model EventAttendance {
+  eventId   String
+  userId    String
+  status    String
+  byAgent   String?
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
+}
+
+/// What someone took away from an event.
+model EventNote {
+  id        String   @id @default(cuid())
+  eventId   String
+  body      String
+  byId      String?
+  agent     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
 }
 
 /// A goal on the roadmap. Progress comes from the tasks linked to it.

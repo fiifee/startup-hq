@@ -11,6 +11,7 @@ import { briefStaleness, briefState, getBrief } from "@/lib/services/brief";
 import { listDecisions } from "@/lib/services/decisions";
 import { listGoals } from "@/lib/services/goals";
 import { listFounders } from "@/lib/services/people";
+import { formatDay } from "@/lib/time";
 
 export const metadata = { title: "Company brief" };
 
@@ -65,7 +66,17 @@ export default async function BriefPage() {
               <span className="text-xs text-ink-3">live</span>
             </div>
             <div className="p-4 space-y-4 text-sm">
-              {!state.doing.length && !state.blocked.length && !state.done.length && <p className="text-ink-3">Nothing in progress or recently done yet.</p>}
+              {!state.upcoming.length && !state.doing.length && !state.blocked.length && !state.done.length && <p className="text-ink-3">Nothing in progress or recently done yet.</p>}
+              {state.upcoming.length > 0 && (
+                <div className="space-y-1">
+                  <h3 className="text-xs font-semibold text-ink-2">Coming up</h3>
+                  {state.upcoming.map((e) => (
+                    <Link key={e.id} href={`/timeline/${e.number}`} className="block truncate hover:underline">
+                      {e.title} <span className="text-ink-3">· {formatDay(e.startsAt, user.timezone, e.allDay)}{e.importance === "mandatory" ? " · mandatory" : ""}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
               {state.doing.length > 0 && (
                 <div className="space-y-1">
                   <h3 className="text-xs font-semibold text-ink-2">In progress</h3>

@@ -9,12 +9,13 @@ import { requireUser } from "@/lib/auth";
 import { getAgenda } from "@/lib/services/agenda";
 import { listMeetings } from "@/lib/services/meetings";
 import { listFounders } from "@/lib/services/people";
+import { formatDay } from "@/lib/time";
 
 export const metadata = { title: "Meetings" };
 
 /** The next meeting's agenda on top, past meetings below. */
 export default async function MeetingsPage() {
-  await requireUser();
+  const user = await requireUser();
   const [meetings, founders, g] = await Promise.all([listMeetings(200), listFounders(), getAgenda()]);
   const extra = g.overdue.length + g.blocked.length + g.proposed.length;
   return (
@@ -30,6 +31,19 @@ export default async function MeetingsPage() {
           <p className="text-sm text-ink-2">Topics anyone added. When you add the meeting, these are attached to it.</p>
         </div>
         <AgendaItems items={g.items} founders={founders} />
+        {g.upcoming.length > 0 && (
+          <div className="border-t border-line px-4 py-3">
+            <h3 className="text-xs font-semibold text-ink-2 mb-1">Coming up in the next two weeks</h3>
+            <ul className="text-sm space-y-0.5">
+              {g.upcoming.map((e) => (
+                <li key={e.id}>
+                  <Link href={`/timeline/${e.number}`} className="hover:underline">{e.title}</Link>
+                  <span className="text-ink-3"> · {formatDay(e.startsAt, user.timezone, e.allDay)}{e.importance === "mandatory" ? " · mandatory" : ""}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {g.toDecide.length > 0 && (
           <div className="border-t border-line">
             <h3 className="px-4 pt-3 text-xs font-semibold text-warn">To decide</h3>

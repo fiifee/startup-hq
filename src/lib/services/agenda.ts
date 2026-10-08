@@ -9,7 +9,7 @@ import { logActivity } from "./activity";
  */
 export async function getAgenda() {
   const now = new Date();
-  const [items, overdue, blocked, proposed, suggestions, lastMeeting, toDecide] = await Promise.all([
+  const [items, overdue, blocked, proposed, suggestions, lastMeeting, toDecide, upcoming] = await Promise.all([
     db.agendaItem.findMany({ where: { meetingId: null, done: false }, orderBy: { createdAt: "asc" } }),
     db.task.findMany({ where: { status: { in: ["todo", "doing"] }, dueDate: { lt: now } }, include: { assignee: true }, orderBy: { dueDate: "asc" } }),
     db.task.findMany({ where: { status: "blocked" }, include: { assignee: true }, orderBy: { updatedAt: "desc" } }),
@@ -17,8 +17,13 @@ export async function getAgenda() {
     db.suggestion.count({ where: { status: "open" } }),
     db.meeting.findFirst({ orderBy: { date: "desc" }, select: { id: true, title: true, date: true } }),
     db.decision.findMany({ where: { status: "open" }, orderBy: { number: "asc" } }),
+    db.event.findMany({
+      where: { status: "confirmed", startsAt: { gte: now, lte: new Date(now.getTime() + 14 * 86_400_000) } },
+      include: { attendance: true },
+      orderBy: { startsAt: "asc" },
+    }),
   ]);
-  return { items, overdue, blocked, proposed, openSuggestions: suggestions, lastMeeting, toDecide };
+  return { items, overdue, blocked, proposed, openSuggestions: suggestions, lastMeeting, toDecide, upcoming };
 }
 
 export async function addAgendaItem(actor: Actor, text: string) {

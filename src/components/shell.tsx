@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BookOpen, CalendarDays, CheckSquare, FileText, Home, Menu, Plus, Settings, X } from "lucide-react";
+import { BookOpen, CalendarClock, CalendarDays, CheckSquare, FileText, Home, Menu, Plus, Settings, X } from "lucide-react";
 import { Avatar, type Founder } from "./people";
 import { openCapture } from "./capture";
 import { useShortcut } from "./shortcut";
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/", label: "Home", icon: Home, badge: true },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/meetings", label: "Meetings", icon: CalendarDays },
+  { href: "/timeline", label: "Timeline", icon: CalendarClock },
   { href: "/brief", label: "Brief", icon: BookOpen },
   { href: "/docs", label: "Docs", icon: FileText },
 ];

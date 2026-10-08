@@ -76,6 +76,13 @@ export const HORIZON_META: Record<string, { label: string; hint: string }> = {
   later: { label: "Later", hint: "Ideas and bigger bets" },
 };
 
+export const KIND_LABEL: Record<string, string> = { event: "Event", deadline: "Deadline", opportunity: "Opportunity" };
+export const IMPORTANCE_META: Record<string, { label: string; cls: string }> = {
+  mandatory: { label: "Mandatory", cls: "bg-danger-soft text-danger border-[#efcbc6] dark:border-[#55302b]" },
+  recommended: { label: "Recommended", cls: "bg-warn-soft text-warn border-[#ead6a8] dark:border-[#4d3c1a]" },
+  optional: { label: "Optional", cls: "bg-sunken text-ink-2 border-line" },
+};
+
 export const PRIORITY_META: Record<string, { label: string; cls: string }> = {
   low: { label: "Low", cls: "text-ink-3" },
   normal: { label: "Normal", cls: "text-ink-2" },

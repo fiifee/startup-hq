@@ -26,15 +26,20 @@ export async function getBrief() {
 /** The computed half of the brief. */
 export async function briefState() {
   const twoWeeks = new Date(Date.now() - 14 * 86_400_000);
-  const [goals, doing, blocked, done, decisions, toDecide] = await Promise.all([
+  const [goals, doing, blocked, done, decisions, toDecide, upcoming] = await Promise.all([
     listGoals(),
     db.task.findMany({ where: { status: "doing" }, include: { assignee: true }, orderBy: { updatedAt: "desc" }, take: 15 }),
     db.task.findMany({ where: { status: "blocked" }, include: { assignee: true }, take: 10 }),
     db.task.findMany({ where: { status: "done", completedAt: { gte: twoWeeks } }, include: { assignee: true }, orderBy: { completedAt: "desc" }, take: 15 }),
     db.decision.findMany({ where: { status: "active" }, orderBy: { decidedAt: "desc" }, take: 8 }),
     db.decision.findMany({ where: { status: "open" }, orderBy: { number: "asc" } }),
+    db.event.findMany({
+      where: { status: "confirmed", startsAt: { gte: new Date(Date.now() - 86_400_000), lte: new Date(Date.now() + 21 * 86_400_000) } },
+      orderBy: { startsAt: "asc" },
+      take: 10,
+    }),
   ]);
-  return { goals, doing, blocked, done, decisions, toDecide };
+  return { goals, doing, blocked, done, decisions, toDecide, upcoming };
 }
 
 /** Everything that happened since the narrative was last touched. */
@@ -84,6 +89,7 @@ export async function briefForAI() {
       doneLastTwoWeeks: state.done.map((t) => `T-${t.number} ${t.title} (${name(t.assignee)})`),
       activeDecisions: state.decisions.map((d) => `D-${d.number} ${d.title}`),
       stillToDecide: state.toDecide.map((d) => `D-${d.number} ${d.title}`),
+      comingUp: state.upcoming.map((e) => `E-${e.number} ${e.title} (${e.kind}, ${e.importance}, ${e.startsAt.toISOString().slice(0, 10)})`),
     },
   };
 }

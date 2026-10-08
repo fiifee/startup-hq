@@ -19,7 +19,9 @@ import { PROVIDERS, type Provider } from "@/lib/llm";
 import { processMeetingWithKey } from "@/lib/process-meeting";
 import { revertActivity } from "@/lib/services/activity";
 import { markBriefReviewed, refreshBriefWithKey } from "@/lib/services/brief";
+import { addEventNote, createEvent, editEventNote, setAttendance, updateEvent } from "@/lib/services/events";
 import { createGoal, updateGoal, type GoalPatch } from "@/lib/services/goals";
+import { isValidTz, parseWhen } from "@/lib/time";
 import { addAgendaItem, removeAgendaItem, setAgendaItemDone } from "@/lib/services/agenda";
 import { recordDecision, updateDecision } from "@/lib/services/decisions";
 import { fileMeta, linkFile, unlinkFile } from "@/lib/services/drive";
@@ -56,7 +58,7 @@ const dateOrNull = (s: string | null | undefined) => (s ? new Date(s) : null);
 
 // ---- Tasks
 
-export async function createTaskAction(input: { title: string; description?: string; assignee?: string | null; due?: string | null; priority?: string; status?: string; meetingId?: string | null; goal?: string | null }) {
+export async function createTaskAction(input: { title: string; description?: string; assignee?: string | null; due?: string | null; priority?: string; status?: string; meetingId?: string | null; goal?: string | null; eventId?: string | null }) {
   const { actor } = await me();
   return attempt(async () => {
     const t = await createTask(actor, { ...input, dueDate: dateOrNull(input.due), assignee: input.assignee ?? null });
@@ -82,6 +84,83 @@ export async function deleteTaskAction(ref: string) {
 export async function commentAction(ref: string, body: string) {
   const { actor } = await me();
   return attempt(() => addTaskComment(actor, ref, body).then(() => undefined));
+}
+
+// ---- Timeline
+
+type EventForm = {
+  title?: string;
+  kind?: string;
+  importance?: string;
+  date?: string;
+  time?: string;
+  timezone?: string;
+  location?: string;
+  url?: string;
+  description?: string;
+};
+
+function when(f: EventForm) {
+  if (!f.date) return null;
+  return parseWhen(f.time ? `${f.date} ${f.time}` : f.date, f.timezone);
+}
+
+export async function createEventAction(f: EventForm) {
+  const { actor } = await me();
+  return attempt(async () => {
+    const w = when(f);
+    if (!w || !f.title?.trim()) throw new Error("Add a title and a date");
+    const r = await createEvent(actor, { ...f, title: f.title, startsAt: w.date, allDay: w.allDay });
+    return { number: r.event.number, duplicate: r.duplicate };
+  });
+}
+
+export async function updateEventAction(ref: string, f: EventForm & { status?: string }) {
+  const { actor } = await me();
+  return attempt(async () => {
+    const w = when(f);
+    await updateEvent(actor, ref, { ...f, ...(w ? { startsAt: w.date, allDay: w.allDay } : {}) });
+  });
+}
+
+/** Confirm (or dismiss) events an AI proposed. */
+export async function confirmEventsAction(refs: string[], accept: boolean) {
+  const { actor } = await me();
+  return attempt(async () => {
+    for (const r of refs) await updateEvent(actor, r, { status: accept ? "confirmed" : "dismissed" });
+  });
+}
+
+export async function setAttendanceAction(ref: string, status: string) {
+  const { actor } = await me();
+  return attempt(() => setAttendance(actor, ref, status, "me"));
+}
+
+export async function addEventNoteAction(ref: string, body: string) {
+  const { actor } = await me();
+  return attempt(() => addEventNote(actor, ref, body).then(() => undefined));
+}
+
+export async function editEventNoteAction(id: string, body: string) {
+  const { actor } = await me();
+  return attempt(() => editEventNote(actor, id, body).then(() => undefined));
+}
+
+/** The browser reports its zone on each visit; it is used unless the user pinned one. */
+export async function syncTimezoneAction(tz: string) {
+  const user = await requireUser();
+  if (!isValidTz(tz) || user.timezonePinned || user.timezone === tz) return { ok: true as const };
+  await db.user.update({ where: { id: user.id }, data: { timezone: tz } });
+  return done();
+}
+
+/** Pick a zone in Settings (pinned), or null to follow the browser again. */
+export async function pinTimezoneAction(tz: string | null, browserTz?: string) {
+  const user = await requireUser();
+  const next = tz ?? browserTz ?? user.timezone;
+  if (!isValidTz(next)) return { ok: false as const, error: "Unknown time zone" };
+  await db.user.update({ where: { id: user.id }, data: { timezone: next, timezonePinned: tz !== null } });
+  return done();
 }
 
 // ---- Goals

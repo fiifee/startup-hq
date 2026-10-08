@@ -72,6 +72,7 @@ export type TaskInput = {
   tags?: string[];
   meetingId?: string | null;
   goal?: string | null;
+  eventId?: string | null;
 };
 
 function checkEnum(value: string | undefined, allowed: readonly string[], name: string) {
@@ -96,6 +97,7 @@ export async function createTask(actor: Actor, input: TaskInput) {
         dueDate: input.dueDate ?? null,
         tags: (input.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean),
         meetingId: input.meetingId ?? null,
+        eventId: input.eventId ?? null,
         goalId,
         completedAt: input.status === "done" ? new Date() : null,
         ...by(actor, "created"),
@@ -108,7 +110,7 @@ export async function createTask(actor: Actor, input: TaskInput) {
   });
 }
 
-export type TaskPatch = Partial<Omit<TaskInput, "meetingId">>;
+export type TaskPatch = Partial<Omit<TaskInput, "meetingId" | "eventId">>;
 
 /**
  * Apply a change. When an AI tries to rewrite the title/description that a person

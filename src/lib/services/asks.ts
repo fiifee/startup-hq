@@ -3,6 +3,7 @@ import { isAI, type Actor } from "../actor";
 import { db } from "../db";
 import { logActivity, type Tx } from "./activity";
 import { parseDeadline } from "../deadline";
+import { matchUsers } from "../names";
 import { ymd } from "../time";
 import { listFounders, resolveUser, userTz } from "./people";
 
@@ -81,18 +82,14 @@ export async function createAsk(actor: Actor, input: { entityType: AskTarget; en
  * full names without spaces, and email names. Returns the asks created.
  */
 export async function asksFromMentions(actor: Actor, entityType: AskTarget, entityId: string, text: string) {
-  const mentions = [...text.matchAll(/(^|[\s(])@([\p{L}][\p{L}0-9._-]*)/gu)].map((m) => m[2].toLowerCase().replace(/[.,!?;:]+$/, ""));
+  const mentions = [...text.matchAll(/(^|[\s(])@([\p{L}][\p{L}0-9._-]*)/gu)].map((m) => m[2].replace(/[.,!?;:]+$/, ""));
   if (!mentions.length) return [];
   const founders = await listFounders();
-  const to = founders
-    .filter((f) => {
-      const first = (f.name ?? "").split(" ")[0].toLowerCase();
-      const full = (f.name ?? "").replace(/\s+/g, "").toLowerCase();
-      const mail = f.email.split("@")[0].toLowerCase();
-      return mentions.some((m) => m === first || m === full || m === mail);
-    })
-    .map((f) => f.id)
-    .filter((id) => id !== actor.userId);
+  // Each mention must point at exactly one person ("@ann" → Anna); ambiguous ones are skipped.
+  const to = [...new Set(mentions.flatMap((m) => {
+    const found = matchUsers(m, founders);
+    return found.length === 1 ? [found[0].id] : [];
+  }))].filter((id) => id !== actor.userId);
   if (!to.length) return [];
   const target = await targetOf(entityType, entityId);
   if (!target) return [];

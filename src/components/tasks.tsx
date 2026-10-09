@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Check, X } from "lucide-react";
 import { confirmTasksAction, createTaskAction, updateTaskAction } from "@/app/actions";
 import { DateInput } from "./date-input";
+import { shortName } from "@/lib/names";
 import { Avatar, Byline, type Founder } from "./people";
 import { dueLabel, inputCls, PRIORITY_META, selectCls, STATUS_META } from "./ui";
 import { useAction } from "./use-action";
@@ -120,7 +121,7 @@ export function QuickAddTask({ founders, me, meetingId, goal, eventId }: { found
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Add a task…" aria-label="New task title" className={`${inputCls} flex-1 min-w-[200px]`} />
       <select value={assignee} onChange={(e) => setAssignee(e.target.value)} aria-label="Assignee" className={selectCls}>
         <option value="">Unassigned</option>
-        {founders.map((f) => <option key={f.id} value={f.id}>{f.name ?? f.email}</option>)}
+        {founders.map((f) => <option key={f.id} value={f.id}>{shortName(f, founders)}</option>)}
       </select>
       <DateInput value={due} onChange={(e) => setDue(e.target.value)} aria-label="Due date" className={`${selectCls} w-[130px]`} />
       <button disabled={pending || !title.trim()} className="h-10 px-4 rounded-md bg-ink text-canvas text-sm font-medium disabled:opacity-50">Add</button>

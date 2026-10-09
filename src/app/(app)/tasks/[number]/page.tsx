@@ -80,7 +80,7 @@ export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
           {task.comments.map((c) => <CommentItem key={c.id} comment={c} founders={founders} me={user.id} />)}
         </ul>
         <div className="p-3 border-t border-line">
-          <CommentBox taskRef={String(task.number)} />
+          <CommentBox taskRef={String(task.number)} founders={founders} me={user.id} />
         </div>
       </section>
 

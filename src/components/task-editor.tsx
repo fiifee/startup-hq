@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Link2, Pencil, Trash2, X } from "lucide-react";
 import { commentAction, deleteTaskAction, editCommentAction, linkDriveAction, unlinkDriveAction, updateTaskAction } from "@/app/actions";
 import { Markdown } from "./markdown";
+import { MentionTextarea } from "./mention-textarea";
+import { shortName } from "@/lib/names";
 import { DateInput } from "./date-input";
 import { Byline, type Founder } from "./people";
 import { btnDanger, btnPrimary, btnSmall, inputCls, labelCls, relative, selectCls, STATUS_META, textareaCls } from "./ui";
@@ -85,7 +87,7 @@ export function TaskEditor({ task, founders, goals }: { task: Task; founders: Fo
           <label htmlFor="assignee" className={labelCls}>Owner</label>
           <select id="assignee" value={f.assignee} onChange={set("assignee")} className={`${selectCls} w-full`}>
             <option value="">Unassigned</option>
-            {founders.map((u) => <option key={u.id} value={u.id}>{u.name ?? u.email}</option>)}
+            {founders.map((u) => <option key={u.id} value={u.id}>{shortName(u, founders)}</option>)}
           </select>
         </div>
         <div>
@@ -138,7 +140,7 @@ export function TaskEditor({ task, founders, goals }: { task: Task; founders: Fo
   );
 }
 
-export function CommentBox({ taskRef }: { taskRef: string }) {
+export function CommentBox({ taskRef, founders, me }: { taskRef: string; founders: Founder[]; me: string }) {
   const { pending, run } = useAction();
   const [body, setBody] = useState("");
   return (
@@ -149,7 +151,7 @@ export function CommentBox({ taskRef }: { taskRef: string }) {
       }}
       className="flex gap-2 items-end"
     >
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder="Add a comment… @Name asks them for input" aria-label="Comment" className={textareaCls} />
+      <MentionTextarea value={body} onChange={setBody} founders={founders} me={me} rows={2} placeholder="Add a comment… type @ to ask a teammate" aria-label="Comment" className={textareaCls} />
       <button disabled={pending || !body.trim()} className={btnPrimary}>Post</button>
     </form>
   );

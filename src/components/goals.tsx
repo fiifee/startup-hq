@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { createGoalAction, updateGoalAction } from "@/app/actions";
 import { DateInput } from "./date-input";
+import { shortName } from "@/lib/names";
 import { DndColumns } from "./dnd-columns";
 import { Avatar, Byline, type Founder } from "./people";
 import { btnPrimary, formatDate, HORIZON_META, inputCls, labelCls, selectCls, textareaCls } from "./ui";
@@ -98,7 +99,7 @@ export function NewGoal({ founders, me }: { founders: Founder[]; me: string }) {
       </select>
       <select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner" className={selectCls}>
         <option value="">No owner</option>
-        {founders.map((f) => <option key={f.id} value={f.id}>{f.name ?? f.email}</option>)}
+        {founders.map((f) => <option key={f.id} value={f.id}>{shortName(f, founders)}</option>)}
       </select>
       <DateInput value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Target date" className={`${selectCls} w-[130px]`} />
       <button disabled={pending || !title.trim()} className="h-10 px-4 rounded-md bg-ink text-canvas text-sm font-medium disabled:opacity-50">Add goal</button>
@@ -145,7 +146,7 @@ export function GoalEditor({ goal, founders }: { goal: GoalCardData & { descript
           <label htmlFor="g-owner" className={labelCls}>Owner</label>
           <select id="g-owner" value={f.owner} onChange={set("owner")} className={`${selectCls} w-full`}>
             <option value="">No owner</option>
-            {founders.map((u) => <option key={u.id} value={u.id}>{u.name ?? u.email}</option>)}
+            {founders.map((u) => <option key={u.id} value={u.id}>{shortName(u, founders)}</option>)}
           </select>
         </div>
         <div>

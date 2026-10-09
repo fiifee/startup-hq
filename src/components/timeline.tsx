@@ -11,6 +11,7 @@ import { cleanLinks, eventLinks, isJoinLink, type EventLink } from "@/lib/links"
 import { COMMON_TZ, dayParts, daysUntil, formatWhen, hm, inputValues, tzCity } from "@/lib/time";
 import { DateInput, TimeInput } from "./date-input";
 import { Markdown } from "./markdown";
+import { MentionTextarea } from "./mention-textarea";
 import { Avatar, Byline, firstName, type Founder } from "./people";
 import { btnPrimary, btnSecondary, IMPORTANCE_META, inputCls, KIND_LABEL, labelCls, selectCls, textareaCls } from "./ui";
 import { useAction } from "./use-action";
@@ -426,7 +427,7 @@ export function EventNotes({ eventRef, notes, founders, me, past }: { eventRef: 
         }}
         className="p-3 border-t border-line flex gap-2 items-end"
       >
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder={past ? "What did you take away? Who did you meet? Follow-ups?" : "Notes, questions to ask, what to prepare…"} aria-label="Your note" className={textareaCls} />
+        <MentionTextarea value={body} onChange={setBody} founders={founders} me={me} rows={2} placeholder={past ? "What did you take away? Who did you meet? Follow-ups? (@ to ask a teammate)" : "Notes, questions to ask, what to prepare… (@ to ask a teammate)"} aria-label="Your note" className={textareaCls} />
         <button disabled={pending || !body.trim()} className={btnPrimary}>Add</button>
       </form>
     </div>

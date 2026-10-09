@@ -16,6 +16,7 @@ import { listAsks } from "@/lib/services/asks";
 import { listOpenSuggestions } from "@/lib/services/suggestions";
 import { eventLinks, isJoinLink } from "@/lib/links";
 import { daysUntil, formatWhen } from "@/lib/time";
+import { shortName } from "@/lib/names";
 import { daysAgo, feedItems } from "@/lib/view";
 
 /**
@@ -204,7 +205,7 @@ export default async function Home() {
                   <Link href={`/tasks?who=${f.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-sunken">
                     <Avatar user={f} size={28} />
                     <span className="flex-1 text-sm">
-                      {f.name ?? f.email}
+                      {shortName(f, founders)}
                       {!f.joinedAt && <span className="text-ink-3"> · invited</span>}
                     </span>
                     <span className="text-sm text-ink-2 tabular">{count(f.id)} open{count(f.id, "blocked") ? `, ${count(f.id, "blocked")} blocked` : ""}</span>

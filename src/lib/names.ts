@@ -37,7 +37,7 @@ export function matchUsers<T extends Named>(query: string, users: T[], minPrefix
   });
 }
 
-/** "Anna", or "Anna R." when two people share the first name. */
+/** "Anna", or "Anna T." when two people share the first name. */
 export function shortName<T extends Named>(u: T | null | undefined, all: T[] = []) {
   if (!u) return "Someone";
   const first = (u.name ?? "").split(/\s+/)[0] || u.email.split("@")[0];

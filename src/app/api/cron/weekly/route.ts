@@ -6,7 +6,8 @@ export const maxDuration = 120;
 
 /** Vercel Cron, Mondays. Runs on the key of a user who lets their AI work automatically, if any. */
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return new Response("Unauthorized", { status: 401 });
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) return new Response("Unauthorized", { status: 401 });
   const userId = await digestUserId();
   const note = await generateWeeklySummary(userId);
   // The same key keeps the company brief's story current once a week.

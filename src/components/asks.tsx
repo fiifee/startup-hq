@@ -223,7 +223,7 @@ export function AnsweredList({ asks, founders }: { asks: AskView[]; founders: Fo
 }
 
 /** Requests about one thing, shown on its page: who was asked, what they said. */
-export function AskThread({ asks, founders, me }: { asks: AskView[]; founders: Founder[]; me: string }) {
+export function AskThread({ asks, founders, me, withTarget = false }: { asks: AskView[]; founders: Founder[]; me: string; withTarget?: boolean }) {
   const { pending, run } = useAction();
   if (!asks.length) return null;
   return (
@@ -236,6 +236,7 @@ export function AskThread({ asks, founders, me }: { asks: AskView[]; founders: F
               <Byline founders={founders} byId={a.fromId} agent={a.fromAgent} size="xs" />
               <span className="text-ink-2">asked</span>
               <span className="inline-flex items-center gap-1"><Avatar user={asked} size={18} /> {firstName(asked)}</span>
+              {withTarget && a.target && <Link href={a.target.href} className="underline truncate max-w-[320px]">{a.target.label}</Link>}
               <span className="text-xs text-ink-3">{relative(a.createdAt)}</span>
               <span className="text-xs ml-auto">
                 {a.status === "open" ? <><span className="text-warn">Waiting</span> <Due date={a.dueDate} /></> : a.status === "cancelled" ? <span className="text-ink-3">Withdrawn</span> : a.status === "declined" ? <span className="text-ink-3">Can&apos;t right now</span> : a.answerKind === "approve" ? <span className="text-accent font-medium">Looks good</span> : <span className="text-ink-2">Answered</span>}

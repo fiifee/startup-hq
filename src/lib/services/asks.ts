@@ -105,10 +105,12 @@ export async function findAsk(ref: string | number) {
   return a;
 }
 
-export async function listAsks(f: { toId?: string; fromId?: string; status?: string[]; entityType?: string; entityId?: string; unseenAnswered?: boolean; limit?: number }) {
+export async function listAsks(f: { toId?: string; fromId?: string; involving?: string; since?: Date; status?: string[]; entityType?: string; entityId?: string; unseenAnswered?: boolean; limit?: number }) {
   const where: Prisma.AskWhereInput = {};
   if (f.toId) where.toId = f.toId;
   if (f.fromId) where.fromId = f.fromId;
+  if (f.involving) where.OR = [{ toId: f.involving }, { fromId: f.involving }];
+  if (f.since) where.AND = [{ OR: [{ createdAt: { gte: f.since } }, { answeredAt: { gte: f.since } }] }];
   if (f.status) where.status = { in: f.status };
   if (f.entityType) where.entityType = f.entityType;
   if (f.entityId) where.entityId = f.entityId;

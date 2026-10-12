@@ -81,7 +81,7 @@ export async function createAsk(actor: Actor, input: { entityType: AskTarget; en
  * "@Anna can you check this?" in a comment asks Anna. Matches first names,
  * full names without spaces, and email names. Returns the asks created.
  */
-export async function asksFromMentions(actor: Actor, entityType: AskTarget, entityId: string, text: string) {
+export async function asksFromMentions(actor: Actor, entityType: AskTarget, entityId: string, text: string, skip: (string | null)[] = []) {
   const mentions = [...text.matchAll(/(^|[\s(])@([\p{L}][\p{L}0-9._-]*)/gu)].map((m) => m[2].replace(/[.,!?;:]+$/, ""));
   if (!mentions.length) return [];
   const founders = await listFounders();
@@ -89,7 +89,7 @@ export async function asksFromMentions(actor: Actor, entityType: AskTarget, enti
   const to = [...new Set(mentions.flatMap((m) => {
     const found = matchUsers(m, founders);
     return found.length === 1 ? [found[0].id] : [];
-  }))].filter((id) => id !== actor.userId);
+  }))].filter((id) => id !== actor.userId && !skip.includes(id));
   if (!to.length) return [];
   const target = await targetOf(entityType, entityId);
   if (!target) return [];
@@ -133,7 +133,7 @@ export async function answerAsk(actor: Actor, ref: string | number, kind: "reply
   if (a.status !== "open") throw new Error("This request was already answered");
   const body = text.trim() || (kind === "approve" ? "Looks good." : kind === "decline" ? "Can't right now." : "");
   if (kind === "reply" && !body) throw new Error("Write your answer");
-  return db.$transaction(async (tx) => {
+  const updated = await db.$transaction(async (tx) => {
     const updated = await tx.ask.update({
       where: { id: a.id },
       data: { status: kind === "decline" ? "declined" : "answered", answerKind: kind, answer: body, answeredAt: new Date(), draft: "", draftAgent: null },
@@ -149,6 +149,9 @@ export async function answerAsk(actor: Actor, ref: string | number, kind: "reply
       `${kind === "approve" ? "Approved" : kind === "decline" ? "Couldn't help with" : "Answered"} a request on ${target?.label ?? a.entityType}: ${body.slice(0, 80)}`);
     return updated;
   });
+  // "@Liis can you check the numbers?" in a reply asks Liis; the asker already gets the reply.
+  if (kind !== "decline") await asksFromMentions(actor, a.entityType as AskTarget, a.entityId, body, [a.fromId]);
+  return updated;
 }
 
 /** An AI leaves a draft answer for its own user to review and send. */

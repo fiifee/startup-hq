@@ -6,6 +6,7 @@ import { AlarmClock, Check, HelpCircle, MessageSquare, X } from "lucide-react";
 import { answerAskAction, askAction, cancelAskAction, seenAnswersAction, suggestDeadlineAction } from "@/app/actions";
 import { parseDeadline } from "@/lib/deadline";
 import { DateInput } from "./date-input";
+import { MentionTextarea } from "./mention-textarea";
 import { Markdown } from "./markdown";
 import { AiMark, Avatar, Byline, firstName, type Founder } from "./people";
 import { btnPrimary, btnSecondary, btnSmall, dueLabel, relative, textareaCls } from "./ui";
@@ -26,6 +27,7 @@ export type AskView = {
   draft: string;
   draftAgent: string | null;
   createdAt: Date;
+  seenByAsker?: boolean;
   target?: { href: string; label: string } | null;
 };
 
@@ -146,7 +148,7 @@ export function AskButton({ entityType, entityId, founders, me, compact = false,
 }
 
 /** Reply / Looks good / Can't right now, for the person who was asked. */
-function AnswerBox({ ask }: { ask: AskView }) {
+function AnswerBox({ ask, founders }: { ask: AskView; founders: Founder[] }) {
   const { pending, run } = useAction();
   const [text, setText] = useState(ask.draft);
   return (
@@ -154,7 +156,7 @@ function AnswerBox({ ask }: { ask: AskView }) {
       {ask.draft && (
         <p className="text-xs text-ink-2 inline-flex items-center gap-1"><AiMark /> Draft by your {ask.draftAgent ?? "AI"}: check it, change it, then send.</p>
       )}
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Your answer…" aria-label="Your answer" className={textareaCls} />
+      <MentionTextarea value={text} onChange={setText} founders={founders} me={ask.toId} rows={2} placeholder="Your answer… (@name to bring someone in)" aria-label="Your answer" className={textareaCls} />
       <div className="flex flex-wrap gap-2">
         <button disabled={pending || !text.trim()} onClick={() => run(() => answerAskAction(ask.id, "reply", text), "Answer sent")} className="h-8 px-3 rounded-md bg-ink text-canvas text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50">
           <MessageSquare className="w-3.5 h-3.5" /> Reply
@@ -188,71 +190,81 @@ export function AskCard({ ask, founders }: { ask: AskView; founders: Founder[] }
         <span className="text-xs ml-auto"><Due date={ask.dueDate} /> <span className="text-ink-3">{relative(ask.createdAt)}</span></span>
       </div>
       <Markdown className="text-sm">{ask.question}</Markdown>
-      <AnswerBox ask={ask} />
+      <AnswerBox ask={ask} founders={founders} />
     </li>
   );
 }
 
-/** Answers to what I asked, until I mark them read. */
-export function AnsweredList({ asks, founders }: { asks: AskView[]; founders: Founder[] }) {
-  const { pending, run } = useAction();
-  if (!asks.length) return null;
-  return (
-    <div className="rounded-lg border border-line bg-surface">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-        <p className="text-sm text-ink-2">Answers to what you asked</p>
-        <button disabled={pending} onClick={() => run(() => seenAnswersAction(asks.map((a) => a.id)))} className={btnSmall}>Got it</button>
-      </div>
-      <ul className="divide-y divide-line">
-        {asks.map((a) => (
-          <li key={a.id} className="px-4 py-3 space-y-1">
-            <div className="flex items-center gap-2 flex-wrap text-sm">
-              <Byline founders={founders} byId={a.toId} agent={null} size="xs" />
-              <span className={a.status === "declined" ? "text-ink-3" : a.answerKind === "approve" ? "text-accent font-medium" : "text-ink-2"}>
-                {a.status === "declined" ? "can't right now" : a.answerKind === "approve" ? "says it looks good" : "answered"}
-              </span>
-              {a.target && <Link href={a.target.href} className="underline truncate max-w-[320px]">{a.target.label}</Link>}
-            </div>
-            <p className="text-xs text-ink-3 truncate">You asked: {a.question}</p>
-            {a.answer && <Markdown className="text-sm">{a.answer}</Markdown>}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+function Status({ ask }: { ask: AskView }) {
+  if (ask.status === "open") return <><span className="text-warn">Waiting</span> <Due date={ask.dueDate} /></>;
+  if (ask.status === "cancelled") return <span className="text-ink-3">Withdrawn</span>;
+  if (ask.status === "declined") return <span className="text-ink-3">Can&apos;t right now</span>;
+  return ask.answerKind === "approve" ? <span className="text-accent font-medium">Looks good</span> : <span className="text-ink-2">Answered</span>;
 }
 
-/** Requests about one thing, shown on its page: who was asked, what they said. */
+/**
+ * Requests as threads: one question (asked of one or more people) with each
+ * person's status and answer under it. Unread answers to my questions say "New".
+ */
 export function AskThread({ asks, founders, me, withTarget = false }: { asks: AskView[]; founders: Founder[]; me: string; withTarget?: boolean }) {
   const { pending, run } = useAction();
   if (!asks.length) return null;
+  // The same question sent to several people is stored once per person.
+  const groups = new Map<string, AskView[]>();
+  for (const a of asks) {
+    const key = `${a.fromId}|${a.target?.href}|${a.question}`;
+    groups.set(key, [...(groups.get(key) ?? []), a]);
+  }
+  const unread = asks.filter((a) => a.fromId === me && a.status !== "open" && a.seenByAsker === false).map((a) => a.id);
   return (
-    <ul className="space-y-2">
-      {asks.map((a) => {
-        const asked = founders.find((f) => f.id === a.toId);
-        return (
-          <li key={a.id} className={`rounded-md border p-3 space-y-1.5 ${a.status === "open" ? "border-dashed border-line-strong" : "border-line"}`}>
-            <div className="flex items-center gap-2 flex-wrap text-sm">
-              <Byline founders={founders} byId={a.fromId} agent={a.fromAgent} size="xs" />
-              <span className="text-ink-2">asked</span>
-              <span className="inline-flex items-center gap-1"><Avatar user={asked} size={18} /> {firstName(asked)}</span>
-              {withTarget && a.target && <Link href={a.target.href} className="underline truncate max-w-[320px]">{a.target.label}</Link>}
-              <span className="text-xs text-ink-3">{relative(a.createdAt)}</span>
-              <span className="text-xs ml-auto">
-                {a.status === "open" ? <><span className="text-warn">Waiting</span> <Due date={a.dueDate} /></> : a.status === "cancelled" ? <span className="text-ink-3">Withdrawn</span> : a.status === "declined" ? <span className="text-ink-3">Can&apos;t right now</span> : a.answerKind === "approve" ? <span className="text-accent font-medium">Looks good</span> : <span className="text-ink-2">Answered</span>}
-              </span>
-            </div>
-            <Markdown className="text-sm text-ink-2">{a.question}</Markdown>
-            {a.answer && a.status !== "open" && (
-              <div className="rounded px-2 py-1.5 bg-accent-soft/60 text-sm"><Markdown>{a.answer}</Markdown></div>
-            )}
-            {a.status === "open" && a.toId === me && <AnswerBox ask={a} />}
-            {a.status === "open" && a.fromId === me && (
-              <button disabled={pending} onClick={() => run(() => cancelAskAction(a.id), "Withdrawn")} className="text-xs text-ink-3 hover:text-ink underline">Withdraw</button>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <div className="space-y-2">
+      {unread.length > 0 && (
+        <div className="flex justify-end">
+          <button disabled={pending} onClick={() => run(() => seenAnswersAction(unread))} className={btnSmall}>Got it</button>
+        </div>
+      )}
+      <ul className="space-y-2">
+        {[...groups.values()].map((group) => {
+          const first = group[0];
+          const open = group.some((a) => a.status === "open");
+          return (
+            <li key={first.id} className={`rounded-md border p-3 space-y-2 ${open ? "border-dashed border-line-strong" : "border-line"}`}>
+              <div className="flex items-center gap-2 flex-wrap text-sm">
+                <Byline founders={founders} byId={first.fromId} agent={first.fromAgent} size="xs" />
+                <span className="text-ink-2">asked</span>
+                {group.map((a) => {
+                  const asked = founders.find((f) => f.id === a.toId);
+                  return <span key={a.id} className="inline-flex items-center gap-1"><Avatar user={asked} size={18} /> {firstName(asked)}</span>;
+                })}
+                {withTarget && first.target && <Link href={first.target.href} className="underline truncate max-w-[320px]">{first.target.label}</Link>}
+                <span className="text-xs text-ink-3 ml-auto">{relative(first.createdAt)}</span>
+              </div>
+              <Markdown className="text-sm text-ink-2">{first.question}</Markdown>
+              <ul className="space-y-1.5">
+                {group.map((a) => {
+                  const asked = founders.find((f) => f.id === a.toId);
+                  const isNew = a.fromId === me && a.status !== "open" && a.seenByAsker === false;
+                  return (
+                    <li key={a.id} className={`rounded px-2 py-1.5 space-y-1 ${a.status === "open" || a.status === "cancelled" ? "" : "bg-accent-soft/60"}`}>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="inline-flex items-center gap-1 text-sm"><Avatar user={asked} size={18} /> {firstName(asked)}</span>
+                        <Status ask={a} />
+                        {isNew && <span className="px-1.5 rounded bg-accent text-canvas font-medium">New</span>}
+                        {a.answeredAt && <span className="text-ink-3">{relative(a.answeredAt)}</span>}
+                        {a.status === "open" && a.fromId === me && (
+                          <button disabled={pending} onClick={() => run(() => cancelAskAction(a.id), "Withdrawn")} className="ml-auto text-ink-3 hover:text-ink underline">Withdraw</button>
+                        )}
+                      </div>
+                      {a.answer && a.status !== "open" && <Markdown className="text-sm">{a.answer}</Markdown>}
+                      {a.status === "open" && a.toId === me && <AnswerBox ask={a} founders={founders} />}
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

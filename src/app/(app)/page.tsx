@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ActivityFeed } from "@/components/activity";
 import { Markdown } from "@/components/markdown";
 import { Avatar, Byline, firstName } from "@/components/people";
-import { AnsweredList, AskCard, AskThread } from "@/components/asks";
+import { AskCard, AskThread } from "@/components/asks";
 import { SuggestionList } from "@/components/suggestion-list";
 import { ConfirmAll, QuickAddTask, TaskList } from "@/components/tasks";
 import { ConfirmAllEvents, EventLinks, ImportanceChip, ProposedEvent } from "@/components/timeline";
@@ -26,7 +26,7 @@ import { daysAgo, feedItems } from "@/lib/view";
 export default async function Home() {
   const user = await requireUser();
   const brief = await briefNote();
-  const [founders, mine, proposed, suggestions, activity, openByPerson, agenda, lastMeeting, staleness, weekly, proposedEvents, comingUp, asksToMe, answered, myAsks] = await Promise.all([
+  const [founders, mine, proposed, suggestions, activity, openByPerson, agenda, lastMeeting, staleness, weekly, proposedEvents, comingUp, asksToMe, myAsks] = await Promise.all([
     listFounders(),
     db.task.findMany({
       where: { assigneeId: user.id, status: { in: ["todo", "doing", "blocked"] } },
@@ -54,16 +54,15 @@ export default async function Home() {
       take: 4,
     }),
     listAsks({ toId: user.id, status: ["open"] }),
-    listAsks({ fromId: user.id, unseenAnswered: true }),
     listAsks({ involving: user.id, since: daysAgo(14), status: ["open", "answered", "declined"], limit: 30 }),
   ]);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const count = (id: string, status?: string) =>
     openByPerson.filter((g) => g.assigneeId === id && (!status || g.status === status)).reduce((s, g) => s + g._count, 0);
-  // Recent requests either way, minus what already shows above: open ones to me (Needs you) and unread answers (AnsweredList).
+  // Recent requests either way, minus open ones to me (those are under Needs you).
   const pastAsks = myAsks
-    .filter((a) => !(a.status === "open" && a.toId === user.id) && !(a.fromId === user.id && a.status !== "open" && !a.seenByAsker))
+    .filter((a) => !(a.status === "open" && a.toId === user.id))
     .sort((a, b) => +(b.answeredAt ?? b.createdAt) - +(a.answeredAt ?? a.createdAt));
   const needsYou = proposed.length + suggestions.length + proposedEvents.length + asksToMe.length;
 
@@ -125,8 +124,6 @@ export default async function Home() {
           <SuggestionList suggestions={suggestions} founders={founders} />
         </section>
       )}
-
-      <AnsweredList asks={answered} founders={founders} />
 
       {pastAsks.length > 0 && (
         <section className="space-y-3">

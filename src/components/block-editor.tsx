@@ -68,7 +68,7 @@ function Block({ block, founders, first, last }: { block: BlockView; founders: F
   };
 
   return (
-    <div className={`group relative rounded-r-md pl-3 pr-2 py-1.5 ${block.agent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: color }}>
+    <div className={`arrive group relative rounded-md pl-4 pr-2 py-1.5 [--mark-top:0.75rem] ${block.agent ? "ai-tint" : ""}`} style={{ ["--who" as string]: color }}>
       <div className={`flex items-center gap-1 text-xs mb-0.5 ${block.agent ? "" : "h-0 overflow-hidden group-hover:h-auto group-focus-within:h-auto"}`}>
         <Byline founders={founders} byId={block.byId} agent={block.agent} size="xs" />
         <span className="text-ink-3">{relative(block.updatedAt)}</span>

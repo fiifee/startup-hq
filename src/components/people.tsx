@@ -56,8 +56,8 @@ export function Byline({ founders, byId, agent, size = "sm" }: { founders: Found
   }
   return (
     <span
-      className={`inline-flex items-center gap-1 ${text} font-medium px-1.5 rounded`}
-      style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
+      className={`ai-chip inline-flex items-center gap-1 ${text} font-medium px-1.5 rounded`}
+      style={{ ["--who" as string]: color }}
       title={`Written by ${user ? firstName(user) + "'s " : ""}${agent} (AI)`}
     >
       <AiMark />

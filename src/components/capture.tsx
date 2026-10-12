@@ -12,6 +12,7 @@ import { EventDrafts, type DraftEvent } from "./capture-events";
 import { Markdown } from "./markdown";
 import { AiMark } from "./people";
 import { useShortcut } from "./shortcut";
+import { btnPrimarySm, btnSecondarySm } from "./ui";
 
 const OPEN_EVENT = "hq:capture";
 const STORE = "hq-assistant";
@@ -254,11 +255,11 @@ export function Capture({ hasKey, autoAI, color, firstName, userTz }: { hasKey: 
                 <div className="space-y-2">
                   <EventDrafts drafts={drafts} setDrafts={setDrafts} userTz={userTz} />
                   <div className="flex gap-2 items-center">
-                    <button disabled={busy || !drafts.some((d) => d.include)} onClick={saveDrafts} className="h-8 px-3 rounded-md bg-ink text-canvas text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50">
+                    <button disabled={busy || !drafts.some((d) => d.include)} onClick={saveDrafts} className={btnPrimarySm}>
                       {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
                       Add {drafts.filter((d) => d.include).length || ""} to timeline
                     </button>
-                    <button onClick={() => setDrafts(null)} className="h-8 px-3 rounded-md border border-line-strong text-sm hover:bg-sunken">Back</button>
+                    <button onClick={() => setDrafts(null)} className={btnSecondarySm}>Back</button>
                     <span className="text-xs text-ink-3">Check dates and times; you can change any field.</span>
                   </div>
                 </div>

@@ -32,7 +32,7 @@ export default async function GoalPage(props: PageProps<"/goals/[number]">) {
       <div className="flex items-center gap-2 text-sm text-ink-2 flex-wrap">
         <Link href="/brief#roadmap" className="hover:text-ink">Roadmap</Link>
         <span>/</span>
-        <span className="tabular">G-{goal.number}</span>
+        <span className="ref">G-{goal.number}</span>
         <span className="ml-auto inline-flex items-center gap-1.5">
           Added by <Byline founders={founders} byId={goal.createdById} agent={goal.createdAgent} size="xs" /> · {formatDate(goal.createdAt)}
         </span>

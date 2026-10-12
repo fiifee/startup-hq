@@ -15,7 +15,7 @@ type Open = {
 };
 
 /** Every open AI suggestion, each with a link to where it applies. */
-export function SuggestionList({ suggestions, founders }: { suggestions: Open[]; founders: Founder[] }) {
+export function SuggestionList({ suggestions, founders, flat = false }: { suggestions: Open[]; founders: Founder[]; flat?: boolean }) {
   return (
     <>
       {suggestions.map((s) => {
@@ -27,6 +27,7 @@ export function SuggestionList({ suggestions, founders }: { suggestions: Open[];
             <SuggestionCard
               key={s.id}
               founders={founders}
+              flat={flat}
               suggestion={s}
               context={{ label: `${isTask ? "T" : "G"}-${target.number}`, href: `/${isTask ? "tasks" : "goals"}/${target.number}` }}
               changes={Object.entries(p).map(([field, after]) => ({
@@ -43,6 +44,7 @@ export function SuggestionList({ suggestions, founders }: { suggestions: Open[];
             <SuggestionCard
               key={s.id}
               founders={founders}
+              flat={flat}
               suggestion={s}
               context={{ label: `D-${d.number}`, href: "/brief#decisions" }}
               changes={Object.entries(p).map(([field, after]) => ({
@@ -59,6 +61,7 @@ export function SuggestionList({ suggestions, founders }: { suggestions: Open[];
             <SuggestionCard
               key={s.id}
               founders={founders}
+              flat={flat}
               suggestion={s}
               context={{ label: n.title, href: n.kind === "brief" ? "/brief" : `/notes/${n.id}` }}
               changes={[{ label: "Paragraph", before: s.block.content, after: p.delete ? null : String(p.content ?? "") }]}

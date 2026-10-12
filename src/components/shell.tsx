@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { BookOpen, CalendarClock, CalendarDays, CheckSquare, FileText, Home, Menu, Plus, Settings, X } from "lucide-react";
-import { Avatar, type Founder } from "./people";
+import { Avatar, firstName, type Founder } from "./people";
 import { openCapture } from "./capture";
 import { useShortcut } from "./shortcut";
 
@@ -27,11 +27,12 @@ function NavLinks({ reviewCount, onNavigate }: { reviewCount: number; onNavigate
           key={href}
           href={href}
           onClick={onNavigate}
-          className={`flex items-center gap-2.5 h-9 px-2.5 rounded-md text-sm transition-colors ${
-            active(href) ? "bg-sunken text-ink font-medium" : "text-ink-2 hover:text-ink hover:bg-sunken"
+          aria-current={active(href) ? "page" : undefined}
+          className={`flex items-center gap-2.5 h-9 px-2.5 rounded-md text-sm transition-colors duration-150 ${
+            active(href) ? "bg-accent-soft text-ink font-medium" : "text-ink-2 hover:text-ink hover:bg-ink/5"
           }`}
         >
-          <Icon className="w-4 h-4 shrink-0" aria-hidden />
+          <Icon className={`w-4 h-4 shrink-0 ${active(href) ? "text-accent" : ""}`} aria-hidden />
           <span className="flex-1">{label}</span>
           {badge && reviewCount > 0 && (
             <span className="min-w-5 h-5 px-1.5 rounded-full bg-ink text-canvas text-xs font-medium inline-flex items-center justify-center tabular">
@@ -52,7 +53,7 @@ function CaptureButton({ onDone }: { onDone?: () => void }) {
         onDone?.();
         openCapture();
       }}
-      className="w-full h-9 px-2.5 rounded-md border border-line bg-surface text-sm text-ink-2 hover:text-ink hover:border-line-strong inline-flex items-center gap-2"
+      className="w-full h-9 px-2.5 rounded-md border border-line bg-surface text-sm text-ink-2 hover:text-ink hover:border-line-strong inline-flex items-center gap-2 shadow-[0_1px_2px_rgb(0_0_0/0.04)]"
     >
       <Plus className="w-4 h-4" aria-hidden />
       <span className="flex-1 text-left">Capture or search</span>
@@ -61,27 +62,60 @@ function CaptureButton({ onDone }: { onDone?: () => void }) {
   );
 }
 
-export function Shell({ user, reviewCount, children }: { user: Founder; reviewCount: number; children: React.ReactNode }) {
+export type TeamMember = Founder & { invited: boolean; open: number; blocked: number };
+
+/** Who has what: each person in their colour with their open tasks. */
+function Team({ team, me, onNavigate }: { team: TeamMember[]; me: string; onNavigate?: () => void }) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className="space-y-1">
+      <h2 id={id} className="px-2.5 text-xs font-medium text-ink-3">Team</h2>
+      <ul>
+        {team.map((f) => (
+          <li key={f.id}>
+            <Link
+              href={`/tasks?who=${f.id === me ? "me" : f.id}`}
+              onClick={onNavigate}
+              className="flex items-center gap-2.5 h-8 px-2.5 rounded-md text-sm transition-colors duration-150 hover:bg-ink/5"
+            >
+              <Avatar user={f} size={18} />
+              <span className="flex-1 truncate text-ink-2">
+                {firstName(f)}
+                {f.id === me && <span className="text-ink-3"> (you)</span>}
+                {f.invited && <span className="text-ink-3"> · invited</span>}
+              </span>
+              {f.blocked > 0 && <span className="text-xs text-danger tabular" title={`${f.blocked} blocked`}>{f.blocked} blocked</span>}
+              <span className="ref text-xs w-5 text-right" title={`${f.open} open tasks`}>{f.open}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function Shell({ user, team, reviewCount, children }: { user: Founder; team: TeamMember[]; reviewCount: number; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const footer = (
     <div className="mt-auto pt-4 border-t border-line flex items-center gap-2">
       <Avatar user={user} size={26} />
       <span className="text-sm truncate flex-1">{user.name ?? user.email}</span>
-      <Link href="/settings" aria-label="Settings" className="p-1.5 rounded-md text-ink-2 hover:text-ink hover:bg-sunken" onClick={() => setOpen(false)}>
+      <Link href="/settings" aria-label="Settings" className="p-1.5 rounded-md text-ink-2 hover:text-ink hover:bg-ink/5" onClick={() => setOpen(false)}>
         <Settings className="w-4 h-4" />
       </Link>
     </div>
   );
   return (
-    <div className="min-h-dvh md:flex">
-      <aside className="hidden md:flex flex-col w-56 shrink-0 h-dvh sticky top-0 border-r border-line bg-canvas px-3 py-4 gap-4">
-        <Link href="/" className="px-2.5 font-semibold tracking-tight">Startup HQ</Link>
+    <div className="me-scope min-h-dvh md:flex" style={{ ["--me" as string]: user.color }}>
+      <aside className="hidden md:flex flex-col w-60 shrink-0 h-dvh sticky top-0 border-r border-line bg-rail px-3 py-4 gap-5">
+        <Link href="/" className="px-2.5 font-semibold tracking-[-0.01em]">Startup HQ</Link>
         <CaptureButton />
         <NavLinks reviewCount={reviewCount} />
+        <Team team={team} me={user.id} />
         {footer}
       </aside>
 
-      <header className="md:hidden sticky top-0 z-30 flex items-center gap-2 h-12 px-4 border-b border-line bg-canvas/95 backdrop-blur">
+      <header className="md:hidden sticky top-0 z-30 flex items-center gap-2 h-12 px-4 border-b border-line bg-rail/90 backdrop-blur-md">
         <button aria-label="Open menu" onClick={() => setOpen(true)} className="p-1.5 -ml-1.5 rounded-md hover:bg-sunken">
           <Menu className="w-5 h-5" />
         </button>
@@ -95,13 +129,14 @@ export function Shell({ user, reviewCount, children }: { user: Founder; reviewCo
       {open && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          <div className="relative w-72 max-w-[85vw] h-full bg-canvas px-3 py-4 flex flex-col gap-4 shadow-xl">
+          <div className="relative w-72 max-w-[85vw] h-full bg-rail px-3 py-4 flex flex-col gap-5 shadow-xl">
             <div className="flex items-center justify-between px-2.5">
               <span className="font-semibold">Startup HQ</span>
               <button aria-label="Close menu" onClick={() => setOpen(false)} className="p-1.5 rounded-md hover:bg-sunken"><X className="w-5 h-5" /></button>
             </div>
             <CaptureButton onDone={() => setOpen(false)} />
             <NavLinks reviewCount={reviewCount} onNavigate={() => setOpen(false)} />
+            <Team team={team} me={user.id} onNavigate={() => setOpen(false)} />
             {footer}
           </div>
         </div>

@@ -10,7 +10,7 @@ import { useAction } from "./use-action";
 /** "N changes since the brief was last updated" with the two ways to clear it. */
 export function BriefFreshness({ changes, hasKey, empty }: { changes: number; hasKey: boolean; empty: boolean }) {
   const { pending, run } = useAction();
-  if (changes === 0 && !empty) return <p className="text-sm text-ink-2 inline-flex items-center gap-1.5"><Check className="w-4 h-4 text-accent" /> Up to date with everything that has happened.</p>;
+  if (changes === 0 && !empty) return <p className="text-sm text-ink-2 inline-flex items-center gap-1.5"><Check className="w-4 h-4 text-ok" /> Up to date with everything that has happened.</p>;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <p className="text-sm text-ink-2 mr-1">

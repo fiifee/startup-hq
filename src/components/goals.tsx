@@ -41,10 +41,10 @@ export function GoalCard({ goal, founders }: { goal: GoalCardData; founders: Fou
   const owner = founders.find((f) => f.id === goal.ownerId);
   const color = founders.find((f) => f.id === goal.createdById)?.color ?? "#7b776f";
   return (
-    <article className={`rounded-md border border-line bg-surface p-3 space-y-2 ${goal.createdAgent ? "ai-tint" : ""}`} style={{ ["--who" as string]: color }}>
+    <article className={`rounded-md border border-line bg-surface py-3 pl-4 pr-3 space-y-2 [--mark-top:1.05rem] ${goal.createdAgent ? "ai-tint" : ""}`} style={{ ["--who" as string]: color }}>
       <div className="flex items-start gap-2">
         <Link href={`/goals/${goal.number}`} className="flex-1 text-sm font-medium leading-snug hover:underline">
-          <span className="text-ink-3 tabular mr-1 font-normal">G-{goal.number}</span>
+          <span className="ref mr-1 font-normal">G-{goal.number}</span>
           {goal.title}
         </Link>
         <Avatar user={owner} size={20} />
@@ -102,7 +102,7 @@ export function NewGoal({ founders, me }: { founders: Founder[]; me: string }) {
         {founders.map((f) => <option key={f.id} value={f.id}>{shortName(f, founders)}</option>)}
       </select>
       <DateInput value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Target date" className={`${selectCls} w-[130px]`} />
-      <button disabled={pending || !title.trim()} className="h-10 px-4 rounded-md bg-ink text-canvas text-sm font-medium disabled:opacity-50">Add goal</button>
+      <button disabled={pending || !title.trim()} className={btnPrimary}>Add goal</button>
     </form>
   );
 }

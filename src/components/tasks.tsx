@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Target, X } from "lucide-react";
 import { confirmTasksAction, createTaskAction, updateTaskAction } from "@/app/actions";
 import { DateInput } from "./date-input";
 import { shortName } from "@/lib/names";
 import { Avatar, Byline, type Founder } from "./people";
-import { dueLabel, inputCls, PRIORITY_META, selectCls, STATUS_META } from "./ui";
+import { btnIcon, btnPrimary, btnPrimarySm, btnSecondarySm, dueLabel, inputCls, PRIORITY_META, selectCls, STATUS_META } from "./ui";
 import { useAction } from "./use-action";
 
 export type TaskLite = {
@@ -47,28 +47,34 @@ export function TaskRow({ task, founders, showConfirm = true }: { task: TaskLite
   const assignee = founders.find((f) => f.id === task.assigneeId);
   const due = task.status === "done" || task.status === "dropped" ? null : dueLabel(task.dueDate);
   const pr = PRIORITY_META[task.priority];
+  // Confirming or dropping folds the row away while the server catches up.
+  const [leave, setLeave] = useState(false);
+  const decide = (keep: boolean) => {
+    setLeave(true);
+    run(() => confirmTasksAction([String(task.number)], keep), keep ? "Confirmed" : undefined);
+  };
   return (
-    <li className={`flex items-center gap-3 px-3 py-2 min-h-12 ${task.createdAgent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: founders.find((f) => f.id === task.createdById)?.color ?? "#7b776f" }}>
+    <li className={`arrive flex items-center gap-3 pl-4 pr-3 py-2 min-h-12 [--mark-top:50%] [--mark-shift:-50%] ${task.createdAgent ? "ai-tint" : ""} ${pending && leave ? "leaving" : ""}`} style={{ ["--who" as string]: founders.find((f) => f.id === task.createdById)?.color ?? "#7b776f" }}>
       <StatusSelect task={task} compact />
       <div className="flex-1 min-w-0">
         <Link href={`/tasks/${task.number}`} className={`block truncate hover:underline ${task.status === "done" || task.status === "dropped" ? "text-ink-3 line-through" : ""}`}>
-          <span className="text-ink-3 tabular mr-1.5">T-{task.number}</span>
+          <span className="ref mr-1.5">T-{task.number}</span>
           {task.title}
         </Link>
         <div className="flex items-center gap-2 flex-wrap text-xs mt-0.5">
           {task.createdAgent && <Byline founders={founders} byId={task.createdById} agent={task.createdAgent} size="xs" />}
           {(task.priority === "high" || task.priority === "urgent") && <span className={pr.cls}>{pr.label}</span>}
           {due && <span className={due.tone === "late" ? "text-danger font-medium" : due.tone === "soon" ? "text-warn" : "text-ink-2"}>{due.text}</span>}
-          {task.goal && <Link href={`/goals/${task.goal.number}`} className="text-ink-2 hover:underline truncate max-w-[220px]">◎ {task.goal.title}</Link>}
+          {task.goal && <Link href={`/goals/${task.goal.number}`} className="text-ink-2 hover:underline truncate max-w-[220px] inline-flex items-center gap-1"><Target className="w-3 h-3 shrink-0" aria-hidden />{task.goal.title}</Link>}
           {task.tags.map((t) => <span key={t} className="text-ink-3">#{t}</span>)}
         </div>
       </div>
       {showConfirm && task.status === "proposed" && (
         <div className="flex gap-1">
-          <button disabled={pending} onClick={() => run(() => confirmTasksAction([String(task.number)], true), "Confirmed")} title="Confirm: move to To do" className="h-8 px-2 rounded-md border border-line-strong text-sm hover:bg-sunken inline-flex items-center gap-1">
-            <Check className="w-3.5 h-3.5" /> Confirm
+          <button disabled={pending} onClick={() => decide(true)} title="Confirm: move to To do" className={btnSecondarySm}>
+            <Check className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Confirm</span>
           </button>
-          <button disabled={pending} onClick={() => run(() => confirmTasksAction([String(task.number)], false))} title="Drop" aria-label="Drop" className="h-8 w-8 rounded-md text-ink-2 hover:bg-sunken inline-flex items-center justify-center">
+          <button disabled={pending} onClick={() => decide(false)} title="Drop" aria-label="Drop" className={btnIcon}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -91,7 +97,7 @@ export function ConfirmAll({ refs }: { refs: string[] }) {
   const { pending, run } = useAction();
   if (!refs.length) return null;
   return (
-    <button disabled={pending} onClick={() => run(() => confirmTasksAction(refs, true), `Confirmed ${refs.length} tasks`)} className="h-8 px-3 rounded-md bg-ink text-canvas text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50">
+    <button disabled={pending} onClick={() => run(() => confirmTasksAction(refs, true), `Confirmed ${refs.length} tasks`)} className={btnPrimarySm}>
       <Check className="w-3.5 h-3.5" /> Confirm all {refs.length}
     </button>
   );
@@ -124,7 +130,7 @@ export function QuickAddTask({ founders, me, meetingId, goal, eventId }: { found
         {founders.map((f) => <option key={f.id} value={f.id}>{shortName(f, founders)}</option>)}
       </select>
       <DateInput value={due} onChange={(e) => setDue(e.target.value)} aria-label="Due date" className={`${selectCls} w-[130px]`} />
-      <button disabled={pending || !title.trim()} className="h-10 px-4 rounded-md bg-ink text-canvas text-sm font-medium disabled:opacity-50">Add</button>
+      <button disabled={pending || !title.trim()} className={btnPrimary}>Add</button>
     </form>
   );
 }

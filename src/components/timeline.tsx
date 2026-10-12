@@ -13,7 +13,7 @@ import { DateInput, TimeInput } from "./date-input";
 import { Markdown } from "./markdown";
 import { MentionTextarea } from "./mention-textarea";
 import { Avatar, Byline, firstName, type Founder } from "./people";
-import { btnPrimary, btnSecondary, IMPORTANCE_META, inputCls, KIND_LABEL, labelCls, selectCls, textareaCls } from "./ui";
+import { btnIcon, btnPrimary, btnPrimarySm, btnSecondary, btnSecondarySm, IMPORTANCE_META, inputCls, KIND_LABEL, labelCls, selectCls, textareaCls } from "./ui";
 import { useAction } from "./use-action";
 
 export type EventView = {
@@ -153,14 +153,14 @@ export function EventRow({ event: e, founders, me, tz }: { event: EventView; fou
   const cd = countdown(e, tz);
   const color = founders.find((f) => f.id === (e.textById ?? e.createdById))?.color;
   return (
-    <li className={`flex gap-3 px-4 py-3 ${e.textAgent ? "ai-tint" : "human-mark"} ${e.importance === "mandatory" ? "border-l-danger!" : ""}`} style={{ ["--who" as string]: color }}>
+    <li className={`arrive flex gap-3 px-4 py-3 [--mark-top:1.05rem] ${e.textAgent ? "ai-tint" : ""}`} style={{ ["--who" as string]: color }}>
       <div className="w-12 shrink-0 text-center leading-tight pt-0.5">
         {(() => {
           const p = dayParts(e.startsAt, tz, e.allDay);
           return (
             <>
               <div className="text-[11px] uppercase tracking-wide text-ink-3">{p.weekday}</div>
-              <div className="text-lg font-semibold tabular">{p.day}.{p.month}</div>
+              <div className={`text-lg font-semibold font-mono tracking-[-0.03em] tabular ${e.importance === "mandatory" ? "text-danger" : ""}`}>{p.day}.{p.month}</div>
               <div className="text-[11px] text-ink-3 tabular">{p.year}</div>
             </>
           );
@@ -192,9 +192,14 @@ export function EventRow({ event: e, founders, me, tz }: { event: EventView; fou
 /** A proposed event: what Hermes saw, and Confirm / Dismiss. */
 export function ProposedEvent({ event: e, founders, tz }: { event: EventView; founders: Founder[]; tz: string }) {
   const { pending, run } = useAction();
+  const [leave, setLeave] = useState(false);
+  const decide = (keep: boolean) => {
+    setLeave(true);
+    run(() => confirmEventsAction([String(e.number)], keep), keep ? "Added to the timeline" : undefined);
+  };
   const when = formatWhen(e.startsAt, e.allDay, tz, e.timezone);
   return (
-    <li className="px-4 py-3 space-y-1.5">
+    <li className={`arrive px-4 py-3 space-y-1.5 ${pending && leave ? "leaving" : ""}`}>
       <div className="flex items-start gap-3 flex-wrap">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -206,16 +211,16 @@ export function ProposedEvent({ event: e, founders, tz }: { event: EventView; fo
           <div className="mt-1"><EventLinks links={eventLinks(e)} compact /></div>
         </div>
         <div className="flex gap-1">
-          <button disabled={pending} onClick={() => run(() => confirmEventsAction([String(e.number)], true), "Added to the timeline")} className="h-8 px-2.5 rounded-md border border-line-strong text-sm hover:bg-sunken inline-flex items-center gap-1">
+          <button disabled={pending} onClick={() => decide(true)} className={btnSecondarySm}>
             <Check className="w-3.5 h-3.5" /> Confirm
           </button>
-          <button disabled={pending} onClick={() => run(() => confirmEventsAction([String(e.number)], false))} aria-label="Dismiss" title="Dismiss" className="h-8 w-8 rounded-md text-ink-2 hover:bg-sunken inline-flex items-center justify-center">
+          <button disabled={pending} onClick={() => decide(false)} aria-label="Dismiss" title="Dismiss" className={btnIcon}>
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
       {(e.source || e.sourceQuote) && (
-        <div className="text-xs text-ink-2 border-l-2 border-line-strong pl-2">
+        <div className="text-xs text-ink-2 border-l border-line-strong pl-2.5">
           {e.sourceQuote && <p className="italic">“{e.sourceQuote}”</p>}
           <p className="text-ink-3 inline-flex items-center gap-1.5">
             {e.source}
@@ -231,7 +236,7 @@ export function ConfirmAllEvents({ refs }: { refs: string[] }) {
   const { pending, run } = useAction();
   if (refs.length < 2) return null;
   return (
-    <button disabled={pending} onClick={() => run(() => confirmEventsAction(refs, true), `Added ${refs.length} events`)} className="h-8 px-3 rounded-md bg-ink text-canvas text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50">
+    <button disabled={pending} onClick={() => run(() => confirmEventsAction(refs, true), `Added ${refs.length} events`)} className={btnPrimarySm}>
       <Check className="w-3.5 h-3.5" /> Confirm all {refs.length}
     </button>
   );
@@ -380,7 +385,7 @@ function NoteItem({ note, founders, me }: { note: { id: string; body: string; by
   const [body, setBody] = useState(note.body);
   const color = founders.find((f) => f.id === note.byId)?.color;
   return (
-    <li className={`px-4 py-3 ${note.agent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: color }}>
+    <li className={`arrive px-4 py-3 [--mark-top:1.1rem] ${note.agent ? "ai-tint" : ""}`} style={{ ["--who" as string]: color }}>
       <div className="flex items-center gap-2 mb-1">
         <Byline founders={founders} byId={note.byId} agent={note.agent} size="xs" />
         {note.editedAt && <span className="text-xs text-ink-3">· edited{(() => { const ed = founders.find((f) => f.id === note.editedById); return ed ? ` by ${firstName(ed)}` : ""; })()}</span>}

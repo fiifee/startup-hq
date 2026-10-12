@@ -27,7 +27,7 @@ export function ActivityFeed({ items, founders }: { items: ActivityItem[]; found
   return (
     <ul className="divide-y divide-line">
       {items.map((a) => (
-        <li key={a.id} className={`group flex items-start gap-3 px-3 py-2 text-sm ${a.agent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: founders.find((f) => f.id === a.byId)?.color ?? "#7b776f" }}>
+        <li key={a.id} className={`arrive group flex items-start gap-3 pl-4 pr-3 py-2 text-sm [--mark-top:0.8rem] ${a.agent ? "ai-tint" : ""}`} style={{ ["--who" as string]: founders.find((f) => f.id === a.byId)?.color ?? "#7b776f" }}>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <Byline founders={founders} byId={a.byId} agent={a.agent} size="xs" />

@@ -32,7 +32,7 @@ export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
       <div className="flex items-center gap-2 text-sm text-ink-2 flex-wrap">
         <Link href="/tasks" className="hover:text-ink">Tasks</Link>
         <span>/</span>
-        <span className="tabular">T-{task.number}</span>
+        <span className="ref">T-{task.number}</span>
         <span className="ml-auto inline-flex items-center gap-1.5">
           Created by <Byline founders={founders} byId={task.createdById} agent={task.createdAgent} size="xs" /> · {formatDate(task.createdAt)}
         </span>

@@ -9,17 +9,26 @@ export const selectCls =
 export const labelCls = "block text-sm font-medium text-ink mb-1.5";
 export const hintCls = "mt-1.5 text-sm text-ink-2";
 
+// One button vocabulary: primary (one per area), secondary, quiet, danger; two sizes.
+// Press feedback and transitions come from globals.css.
 const btnBase =
-  "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-md text-sm font-medium whitespace-nowrap transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
-export const btnPrimary = `${btnBase} bg-ink text-canvas hover:bg-ink/85`;
-export const btnSecondary = `${btnBase} border border-line-strong bg-surface text-ink hover:bg-sunken`;
-export const btnGhost = `${btnBase} text-ink-2 hover:text-ink hover:bg-sunken`;
-export const btnDanger = `${btnBase} border border-danger/40 bg-surface text-danger hover:bg-danger-soft`;
-export const btnSmall = "inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-sm text-ink-2 hover:text-ink hover:bg-sunken cursor-pointer disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-md text-sm font-medium whitespace-nowrap select-none cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed";
+const md = "h-10 px-4 gap-2";
+const sm = "h-8 px-3 gap-1.5";
+const primary = "bg-ink text-canvas hover:bg-ink/85";
+const secondary = "border border-line-strong bg-surface text-ink hover:bg-sunken hover:border-ink-3";
+export const btnPrimary = `${btnBase} ${md} ${primary}`;
+export const btnPrimarySm = `${btnBase} ${sm} ${primary}`;
+export const btnSecondary = `${btnBase} ${md} ${secondary}`;
+export const btnSecondarySm = `${btnBase} ${sm} ${secondary}`;
+export const btnGhost = `${btnBase} ${md} text-ink-2 hover:text-ink hover:bg-sunken`;
+export const btnDanger = `${btnBase} ${md} border border-danger/40 bg-surface text-danger hover:bg-danger-soft`;
+export const btnSmall = `${btnBase} h-8 px-2.5 gap-1.5 font-normal text-ink-2 hover:text-ink hover:bg-sunken`;
+export const btnIcon = `${btnBase} h-8 w-8 text-ink-2 hover:text-ink hover:bg-sunken`;
 
 export const cardCls = "rounded-lg border border-line bg-surface";
-export const h1Cls = "text-2xl font-semibold tracking-tight";
-export const h2Cls = "text-base font-semibold";
+export const h1Cls = "text-[1.625rem] leading-tight font-semibold tracking-[-0.02em] text-balance";
+export const h2Cls = "text-[1.0625rem] font-semibold tracking-[-0.01em]";
 
 /** Founder colours. #1d5fa8 is Santorini blue, the blue of the Cycladic domes. */
 export const FOUNDER_COLORS = ["#2c6e52", "#1d5fa8", "#4a6fa5", "#b5562b", "#8a4fa3", "#b3264f", "#3f8580", "#8a6d00"];
@@ -67,7 +76,7 @@ export const STATUS_META: Record<string, { label: string; cls: string }> = {
   todo: { label: "To do", cls: "border-line text-ink-2 bg-sunken" },
   doing: { label: "Doing", cls: "border-[#cdd9ea] text-[#2a4a73] bg-[#e7edf6] dark:bg-[#1c2532] dark:text-[#a9c2e6] dark:border-[#2d3c52]" },
   blocked: { label: "Blocked", cls: "border-[#efcbc6] text-danger bg-danger-soft dark:border-[#55302b]" },
-  done: { label: "Done", cls: "border-[#c3dccd] text-accent bg-accent-soft dark:border-[#2c4a3a]" },
+  done: { label: "Done", cls: "border-[#c3dccd] text-ok bg-ok-soft dark:border-[#2c4a3a]" },
   dropped: { label: "Dropped", cls: "border-line text-ink-3 bg-transparent line-through" },
 };
 

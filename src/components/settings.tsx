@@ -61,7 +61,7 @@ export function ProfileForm({ user }: { user: Founder }) {
           ))}
         </div>
         <p className={hintCls}>Everything you and your AI write is marked in this colour.</p>
-        <div className="mt-2 px-3 py-2 rounded-r-md ai-tint text-sm" style={{ ["--who" as string]: color }}>✦ This is how text from your AI looks.</div>
+        <div className="mt-2 pl-5 pr-3 py-2 rounded-md ai-tint text-sm [--mark-top:0.85rem]" style={{ ["--who" as string]: color }}>This is how text from your AI looks.</div>
       </fieldset>
       <button disabled={pending} className={btnPrimary}>Save</button>
     </form>

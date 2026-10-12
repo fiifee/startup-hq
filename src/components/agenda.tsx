@@ -14,7 +14,7 @@ export function AgendaItems({ items, founders }: { items: { id: string; text: st
     <div>
       <ul className="divide-y divide-line">
         {items.map((i) => (
-          <li key={i.id} className={`group flex items-center gap-3 px-4 py-2.5 ${i.agent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: founders.find((f) => f.id === i.byId)?.color }}>
+          <li key={i.id} className={`arrive group flex items-center gap-3 px-4 py-2.5 [--mark-top:1rem] ${i.agent ? "ai-tint" : ""}`} style={{ ["--who" as string]: founders.find((f) => f.id === i.byId)?.color }}>
             <button aria-label="Mark handled" disabled={pending} onClick={() => run(() => agendaDoneAction(i.id, true))} className="w-5 h-5 rounded border border-line-strong hover:bg-sunken inline-flex items-center justify-center shrink-0">
               <Check className="w-3.5 h-3.5 opacity-0 group-hover:opacity-50" />
             </button>

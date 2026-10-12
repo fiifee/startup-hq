@@ -1,5 +1,6 @@
 "use client";
 
+import { Target } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { updateTaskAction } from "@/app/actions";
@@ -24,14 +25,14 @@ function Card({ task, founders }: { task: BoardTask; founders: Founder[] }) {
   const color = founders.find((f) => f.id === task.createdById)?.color ?? "#7b776f";
   return (
     <article
-      className={`rounded-md border border-line bg-surface p-2.5 space-y-1.5 ${task.createdAgent ? "ai-tint" : ""}`}
+      className={`arrive rounded-md border border-line bg-surface py-2.5 pl-4 pr-2.5 space-y-1.5 [--mark-top:0.95rem] ${task.createdAgent ? "ai-tint" : ""}`}
       style={{ ["--who" as string]: color }}
     >
       <Link href={`/tasks/${task.number}`} className={`block text-sm leading-snug hover:underline ${task.status === "done" ? "text-ink-3 line-through" : ""}`}>
-        <span className="text-ink-3 tabular mr-1">T-{task.number}</span>
+        <span className="ref mr-1">T-{task.number}</span>
         {task.title}
       </Link>
-      {task.goal && <p className="text-xs text-ink-2 truncate">◎ G-{task.goal.number} {task.goal.title}</p>}
+      {task.goal && <p className="text-xs text-ink-2 truncate flex items-center gap-1"><Target className="w-3 h-3 shrink-0" aria-hidden /><span className="truncate">{task.goal.title}</span></p>}
       <div className="flex items-center gap-2 flex-wrap text-xs">
         {task.createdAgent && <Byline founders={founders} byId={task.createdById} agent={task.createdAgent} size="xs" />}
         {(task.priority === "high" || task.priority === "urgent") && <span className={PRIORITY_META[task.priority].cls}>{PRIORITY_META[task.priority].label}</span>}

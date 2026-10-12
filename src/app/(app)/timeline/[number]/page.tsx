@@ -36,7 +36,7 @@ export default async function EventPage(props: PageProps<"/timeline/[number]">) 
       <div className="flex items-center gap-2 text-sm text-ink-2 flex-wrap">
         <Link href="/timeline" className="hover:text-ink">Timeline</Link>
         <span>/</span>
-        <span className="tabular">E-{e.number}</span>
+        <span className="ref">E-{e.number}</span>
         <span className="ml-auto inline-flex items-center gap-1.5">
           Added by <Byline founders={founders} byId={e.createdById} agent={e.createdAgent} size="xs" />
         </span>
@@ -85,7 +85,7 @@ export default async function EventPage(props: PageProps<"/timeline/[number]">) 
         <h2 className={h2Cls}>Details</h2>
         <EventEditor event={e} />
         {(e.source || e.sourceQuote) && (
-          <div className="text-xs text-ink-2 border-l-2 border-line-strong pl-2">
+          <div className="text-xs text-ink-2 border-l border-line-strong pl-2.5">
             {e.sourceQuote && <p className="italic">“{e.sourceQuote}”</p>}
             <p className="text-ink-3">{e.source}</p>
           </div>

@@ -7,7 +7,7 @@ import { recordDecisionAction, updateDecisionAction } from "@/app/actions";
 import { AskButton } from "./asks";
 import { Markdown } from "./markdown";
 import { Byline, type Founder } from "./people";
-import { btnPrimary, btnSecondary, formatDate, inputCls, labelCls, textareaCls } from "./ui";
+import { btnIcon, btnPrimary, btnPrimarySm, btnSecondary, formatDate, inputCls, labelCls, textareaCls } from "./ui";
 import { useAction } from "./use-action";
 
 type Decision = {
@@ -102,9 +102,9 @@ export function DecisionRow({ decision: d, founders, me }: { decision: Decision;
   }
 
   return (
-    <li className={`group px-4 py-3 ${d.textAgent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: color }}>
+    <li className={`arrive group px-4 py-3 [--mark-top:1.15rem] ${d.textAgent ? "ai-tint" : ""}`} style={{ ["--who" as string]: color }}>
       <div className="flex items-start gap-3">
-        <span className="text-sm text-ink-3 tabular pt-0.5 w-10 shrink-0">D-{d.number}</span>
+        <span className="ref text-sm pt-0.5 w-10 shrink-0">D-{d.number}</span>
         <div className="flex-1 min-w-0">
           <p className={`font-medium ${d.status === "reversed" || d.status === "superseded" ? "line-through text-ink-3" : ""}`}>
             {open && <span className="text-xs font-semibold text-warn mr-2 align-middle">TO DECIDE</span>}
@@ -120,16 +120,16 @@ export function DecisionRow({ decision: d, founders, me }: { decision: Decision;
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {open ? (
-            <button disabled={pending} onClick={() => setMode("decide")} className="h-8 px-3 rounded-md bg-ink text-canvas text-sm font-medium inline-flex items-center gap-1.5">
+            <button disabled={pending} onClick={() => setMode("decide")} className={btnPrimarySm}>
               <Check className="w-3.5 h-3.5" /> Decide
             </button>
           ) : null}
           {me && !asking && (
-            <button aria-label={`Ask for input on D-${d.number}`} title="Ask a teammate" onClick={() => setAsking(true)} className="h-8 w-8 rounded-md text-ink-2 hover:text-ink hover:bg-sunken inline-flex items-center justify-center">
+            <button aria-label={`Ask for input on D-${d.number}`} title="Ask a teammate" onClick={() => setAsking(true)} className={btnIcon}>
               <HelpCircle className="w-4 h-4" />
             </button>
           )}
-          <button aria-label={`Edit D-${d.number}`} title="Edit" onClick={() => setMode("edit")} className="h-8 w-8 rounded-md text-ink-2 hover:text-ink hover:bg-sunken inline-flex items-center justify-center">
+          <button aria-label={`Edit D-${d.number}`} title="Edit" onClick={() => setMode("edit")} className={btnIcon}>
             <Pencil className="w-4 h-4" />
           </button>
           <select

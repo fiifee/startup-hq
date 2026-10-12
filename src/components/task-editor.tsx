@@ -8,7 +8,7 @@ import { MentionTextarea } from "./mention-textarea";
 import { shortName } from "@/lib/names";
 import { DateInput } from "./date-input";
 import { Byline, type Founder } from "./people";
-import { btnDanger, btnPrimary, btnSmall, inputCls, labelCls, relative, selectCls, STATUS_META, textareaCls } from "./ui";
+import { btnDanger, btnPrimary, btnSecondary, btnSmall, inputCls, labelCls, relative, selectCls, STATUS_META, textareaCls } from "./ui";
 import { useAction } from "./use-action";
 
 type Task = {
@@ -211,7 +211,7 @@ export function CommentItem({
   const canEdit = !!c.agent || c.byId === me;
   const editor = founders.find((f) => f.id === c.editedById);
   return (
-    <li className={`group px-4 py-3 ${c.agent ? "ai-tint" : "human-mark"}`} style={{ ["--who" as string]: founders.find((f) => f.id === c.byId)?.color }}>
+    <li className={`arrive group px-4 py-3 [--mark-top:1.1rem] ${c.agent ? "ai-tint" : ""}`} style={{ ["--who" as string]: founders.find((f) => f.id === c.byId)?.color }}>
       <div className="flex items-center gap-2 mb-1">
         <Byline founders={founders} byId={c.byId} agent={c.agent} size="xs" />
         <span className="text-xs text-ink-3">{relative(c.createdAt)}</span>
@@ -233,7 +233,7 @@ export function CommentItem({
           <textarea autoFocus value={body} onChange={(e) => setBody(e.target.value)} rows={4} className={textareaCls} />
           <div className="flex gap-2 items-center">
             <button disabled={pending} className={btnPrimary}>Save</button>
-            <button type="button" onClick={() => { setBody(c.body); setEditing(false); }} className="h-10 px-4 rounded-md border border-line-strong text-sm hover:bg-sunken">Cancel</button>
+            <button type="button" onClick={() => { setBody(c.body); setEditing(false); }} className={btnSecondary}>Cancel</button>
             <span className="text-xs text-ink-3">Empty saves as delete. Undo from the history.</span>
           </div>
         </form>

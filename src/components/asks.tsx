@@ -9,7 +9,7 @@ import { DateInput } from "./date-input";
 import { MentionTextarea } from "./mention-textarea";
 import { Markdown } from "./markdown";
 import { AiMark, Avatar, Byline, firstName, type Founder } from "./people";
-import { btnPrimary, btnSecondary, btnSmall, dueLabel, relative, textareaCls } from "./ui";
+import { btnPrimary, btnPrimarySm, btnSecondary, btnSecondarySm, btnSmall, dueLabel, h2Cls, relative, textareaCls } from "./ui";
 import { useAction } from "./use-action";
 
 export type AskView = {
@@ -158,13 +158,13 @@ function AnswerBox({ ask, founders }: { ask: AskView; founders: Founder[] }) {
       )}
       <MentionTextarea value={text} onChange={setText} founders={founders} me={ask.toId} rows={2} placeholder="Your answer… (@name to bring someone in)" aria-label="Your answer" className={textareaCls} />
       <div className="flex flex-wrap gap-2">
-        <button disabled={pending || !text.trim()} onClick={() => run(() => answerAskAction(ask.id, "reply", text), "Answer sent")} className="h-8 px-3 rounded-md bg-ink text-canvas text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50">
+        <button disabled={pending || !text.trim()} onClick={() => run(() => answerAskAction(ask.id, "reply", text), "Answer sent")} className={btnPrimarySm}>
           <MessageSquare className="w-3.5 h-3.5" /> Reply
         </button>
-        <button disabled={pending} onClick={() => run(() => answerAskAction(ask.id, "approve", text), "Sent")} className="h-8 px-3 rounded-md border border-line-strong text-sm inline-flex items-center gap-1.5 hover:bg-sunken">
+        <button disabled={pending} onClick={() => run(() => answerAskAction(ask.id, "approve", text), "Sent")} className={btnSecondarySm}>
           <Check className="w-3.5 h-3.5" /> Looks good
         </button>
-        <button disabled={pending} onClick={() => run(() => answerAskAction(ask.id, "decline", text), "Sent")} className="h-8 px-3 rounded-md text-sm text-ink-2 inline-flex items-center gap-1.5 hover:bg-sunken">
+        <button disabled={pending} onClick={() => run(() => answerAskAction(ask.id, "decline", text), "Sent")} className={btnSmall}>
           <X className="w-3.5 h-3.5" /> Can&apos;t right now
         </button>
       </div>
@@ -182,7 +182,7 @@ function Due({ date }: { date: Date | null }) {
 export function AskCard({ ask, founders }: { ask: AskView; founders: Founder[] }) {
   const color = founders.find((f) => f.id === ask.fromId)?.color;
   return (
-    <li className="px-4 py-3 space-y-2 human-mark" style={{ ["--who" as string]: color }}>
+    <li className="arrive px-4 py-3 space-y-2" style={{ ["--who" as string]: color }}>
       <div className="flex items-center gap-2 flex-wrap text-sm">
         <Byline founders={founders} byId={ask.fromId} agent={ask.fromAgent} size="xs" />
         <span className="text-ink-2">asks you</span>
@@ -199,14 +199,14 @@ function Status({ ask }: { ask: AskView }) {
   if (ask.status === "open") return <><span className="text-warn">Waiting</span> <Due date={ask.dueDate} /></>;
   if (ask.status === "cancelled") return <span className="text-ink-3">Withdrawn</span>;
   if (ask.status === "declined") return <span className="text-ink-3">Can&apos;t right now</span>;
-  return ask.answerKind === "approve" ? <span className="text-accent font-medium">Looks good</span> : <span className="text-ink-2">Answered</span>;
+  return ask.answerKind === "approve" ? <span className="text-ok font-medium">Looks good</span> : <span className="text-ink-2">Answered</span>;
 }
 
 /**
  * Requests as threads: one question (asked of one or more people) with each
  * person's status and answer under it. Unread answers to my questions say "New".
  */
-export function AskThread({ asks, founders, me, withTarget = false }: { asks: AskView[]; founders: Founder[]; me: string; withTarget?: boolean }) {
+export function AskThread({ asks, founders, me, withTarget = false, title }: { asks: AskView[]; founders: Founder[]; me: string; withTarget?: boolean; title?: string }) {
   const { pending, run } = useAction();
   if (!asks.length) return null;
   // The same question sent to several people is stored once per person.
@@ -217,10 +217,15 @@ export function AskThread({ asks, founders, me, withTarget = false }: { asks: As
   }
   const unread = asks.filter((a) => a.fromId === me && a.status !== "open" && a.seenByAsker === false).map((a) => a.id);
   return (
-    <div className="space-y-2">
-      {unread.length > 0 && (
-        <div className="flex justify-end">
-          <button disabled={pending} onClick={() => run(() => seenAnswersAction(unread))} className={btnSmall}>Got it</button>
+    <div className="space-y-3">
+      {(title || unread.length > 0) && (
+        <div className="flex items-center justify-between gap-3">
+          {title && <h2 className={h2Cls}>{title}</h2>}
+          {unread.length > 0 && (
+            <button disabled={pending} onClick={() => run(() => seenAnswersAction(unread))} className={`${btnSmall} ml-auto`}>
+              <Check className="w-3.5 h-3.5" /> Got it
+            </button>
+          )}
         </div>
       )}
       <ul className="space-y-2">
@@ -228,7 +233,7 @@ export function AskThread({ asks, founders, me, withTarget = false }: { asks: As
           const first = group[0];
           const open = group.some((a) => a.status === "open");
           return (
-            <li key={first.id} className={`rounded-md border p-3 space-y-2 ${open ? "border-dashed border-line-strong" : "border-line"}`}>
+            <li key={first.id} className={`arrive rounded-md border bg-surface p-3 space-y-2 ${open ? "border-dashed border-line-strong" : "border-line"}`}>
               <div className="flex items-center gap-2 flex-wrap text-sm">
                 <Byline founders={founders} byId={first.fromId} agent={first.fromAgent} size="xs" />
                 <span className="text-ink-2">asked</span>
@@ -245,7 +250,7 @@ export function AskThread({ asks, founders, me, withTarget = false }: { asks: As
                   const asked = founders.find((f) => f.id === a.toId);
                   const isNew = a.fromId === me && a.status !== "open" && a.seenByAsker === false;
                   return (
-                    <li key={a.id} className={`rounded px-2 py-1.5 space-y-1 ${a.status === "open" || a.status === "cancelled" ? "" : "bg-accent-soft/60"}`}>
+                    <li key={a.id} className={`rounded px-2 py-1.5 space-y-1 ${a.status === "open" || a.status === "cancelled" ? "" : "bg-sunken"}`}>
                       <div className="flex items-center gap-2 text-xs">
                         <span className="inline-flex items-center gap-1 text-sm"><Avatar user={asked} size={18} /> {firstName(asked)}</span>
                         <Status ask={a} />

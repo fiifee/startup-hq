@@ -19,7 +19,7 @@ function Droppable({ column, count, children, compact }: { column: Column; count
       }`}
     >
       <h2 className="px-3 pt-3 pb-2 text-sm font-semibold flex items-center gap-2">
-        {column.label} <span className="text-ink-3 font-normal tabular">{count}</span>
+        {column.label} <span className="ref font-normal">{count}</span>
       </h2>
       {column.hint && <p className="px-3 -mt-1 pb-2 text-xs text-ink-3">{column.hint}</p>}
       <div className="flex flex-col gap-2 px-2 pb-2 flex-1">{children}</div>
@@ -98,7 +98,12 @@ export function DndColumns<T extends { id: string }>({
           );
         })}
       </div>
-      <DragOverlay>{activeItem ? <div className="rotate-1 shadow-xl rounded-md">{renderCard(activeItem)}</div> : null}</DragOverlay>
+      {/* Lifted while carried; settles into its column with the app's ease-out. */}
+      <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.23, 1, 0.32, 1)" }}>
+        {activeItem ? (
+          <div className="rotate-[1.5deg] scale-[1.02] rounded-md shadow-[0_2px_4px_rgb(0_0_0/0.06),0_12px_28px_-6px_rgb(0_0_0/0.22)] cursor-grabbing">{renderCard(activeItem)}</div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

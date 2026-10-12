@@ -1,3 +1,4 @@
+import { Target } from "lucide-react";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { firstName } from "@/components/people";
@@ -128,7 +129,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
             return (
               <section key={num} className={cardCls}>
                 <h2 className="px-4 py-2.5 border-b border-line text-sm font-semibold flex items-center gap-2">
-                  {goal ? <Link href={`/goals/${num}`} className="hover:underline">◎ {goal.title}</Link> : "No goal"}
+                  {goal ? <Link href={`/goals/${num}`} className="hover:underline inline-flex items-center gap-1.5"><Target className="w-3.5 h-3.5" aria-hidden />{goal.title}</Link> : "No goal"}
                   <span className="text-ink-3 font-normal tabular">{inGoal.length}</span>
                 </h2>
                 <TaskList tasks={inGoal.map((t) => ({ ...t, goal: null }))} founders={founders} />

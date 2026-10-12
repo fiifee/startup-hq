@@ -122,7 +122,7 @@ export default async function BriefPage() {
                   <Link href={`/goals/${g.number}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-sunken text-sm">
                     <span className={`flex-1 ${g.status === "dropped" ? "line-through text-ink-3" : ""}`}>{g.title}</span>
                     <span className="w-32"><ProgressBar done={g.progress.done} total={g.progress.total} /></span>
-                    <span className={`text-xs w-28 text-right ${g.status === "achieved" ? "text-accent font-medium" : "text-ink-3"}`}>
+                    <span className={`text-xs w-28 text-right ${g.status === "achieved" ? "text-ok font-medium" : "text-ink-3"}`}>
                       {g.status === "achieved" ? `Achieved ${g.achievedAt ? formatDate(g.achievedAt, false) : ""}` : "Dropped"}
                     </span>
                   </Link>

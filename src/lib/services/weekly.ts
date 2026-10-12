@@ -54,7 +54,13 @@ export async function generateWeeklySummary(userId: string | null, triggeredBy?:
   if (m) {
     const { text } = await generateText({
       model: m.model,
-      system: "You write a weekly update for a three-person startup team. Be brief and concrete: 3-6 sentences on progress, what is stuck, and what needs a decision. No praise, no filler. Write in the language most of the task and decision titles are in.",
+      system: [
+        "You write the top of a weekly update for a three-person startup team. The facts (counts, task lists, activity) are shown under your text, so do not repeat numbers or statistics.",
+        "Use exactly these three markdown headings, in this order, each with 1-3 short bullets (one line each, under 20 words, task refs like T-12 where useful):",
+        "### Progress\n### Stuck\n### Needs a decision",
+        "Under a heading with nothing to say, write a single bullet: \"- Nothing.\" No intro, no closing line, no praise, no filler.",
+        "Translate the headings and write in the language most of the task and decision titles are in.",
+      ].join("\n"),
       prompt: facts.markdown,
     });
     narrative = text.trim();

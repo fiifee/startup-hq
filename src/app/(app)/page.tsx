@@ -42,7 +42,7 @@ export default async function Home() {
     db.note.findFirst({
       where: { kind: "weekly", archivedAt: null, createdAt: { gte: daysAgo(7) } },
       orderBy: { createdAt: "desc" },
-      include: { blocks: { orderBy: { position: "asc" }, take: 3 } },
+      include: { blocks: { orderBy: { position: "asc" }, take: 12 } },
     }),
     db.event.findMany({ where: { status: "proposed" }, include: { attendance: true }, orderBy: { startsAt: "asc" } }),
     db.event.findMany({
@@ -62,6 +62,9 @@ export default async function Home() {
     .sort((a, b) => +(b.answeredAt ?? b.createdAt) - +(a.answeredAt ?? a.createdAt));
   const needsYou = proposed.length + suggestions.length + proposedEvents.length + asksToMe.length;
 
+  // The AI's Progress / Stuck / Needs a decision, without the fact lists below it (they start at the bold date range).
+  const factsAt = weekly ? weekly.blocks.findIndex((b) => /^\*\*\d{2}\.\d{2}\.\d{2}/.test(b.content)) : -1;
+  const weeklyPreview = weekly ? weekly.blocks.slice(0, factsAt > 0 ? factsAt : 3).map((b) => b.content).join("\n\n") : "";
   const groupHead = "flex items-center justify-between gap-3 px-4 pt-3 pb-1";
   const groupLabel = "text-sm font-medium text-ink-2";
   const link = "text-sm text-ink-2 hover:text-ink";
@@ -85,8 +88,8 @@ export default async function Home() {
               <Link href={`/notes/${weekly.id}`} className={link}>Read →</Link>
             </span>
           </div>
-          <Link href={`/notes/${weekly.id}`} className="block max-h-32 overflow-hidden relative [mask-image:linear-gradient(to_bottom,black_55%,transparent)]">
-            <Markdown className="text-sm text-ink-2">{weekly.blocks.map((b) => b.content).join("\n\n")}</Markdown>
+          <Link href={`/notes/${weekly.id}`} className="block rounded-md -mx-2 px-2 py-1 hover:bg-ink/[0.03]">
+            <Markdown className="text-sm text-ink-2">{weeklyPreview}</Markdown>
           </Link>
         </section>
       )}

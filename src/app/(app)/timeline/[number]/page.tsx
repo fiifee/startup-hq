@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActivityFeed } from "@/components/activity";
 import { AskButton, AskThread } from "@/components/asks";
+import { FromTasks } from "@/components/from-tasks";
 import { Byline } from "@/components/people";
 import { SuggestionCard } from "@/components/suggestions";
 import { QuickAddTask, TaskList } from "@/components/tasks";
@@ -13,6 +14,7 @@ import { recentActivity } from "@/lib/services/activity";
 import { listAsks } from "@/lib/services/asks";
 import { getEventDetail } from "@/lib/services/events";
 import { listFounders } from "@/lib/services/people";
+import { connectedComments } from "@/lib/services/tasks";
 import { daysUntil, formatWhen, hm } from "@/lib/time";
 import { feedItems } from "@/lib/view";
 
@@ -21,11 +23,12 @@ export default async function EventPage(props: PageProps<"/timeline/[number]">) 
   const { number } = await props.params;
   const e = await getEventDetail(number).catch(() => null);
   if (!e) notFound();
-  const [founders, activity, suggestions, asks] = await Promise.all([
+  const [founders, activity, suggestions, asks, fromTasks] = await Promise.all([
     listFounders(),
     recentActivity({ entityType: "event", entityId: e.id, limit: 30 }),
     db.suggestion.findMany({ where: { entityType: "event", entityId: e.id, status: "open" } }),
     listAsks({ entityType: "event", entityId: e.id, status: ["open", "answered", "declined"] }),
+    connectedComments({ eventId: e.id }),
   ]);
   const tz = user.timezone;
   const when = formatWhen(e.startsAt, e.allDay, tz, e.timezone);
@@ -99,6 +102,8 @@ export default async function EventPage(props: PageProps<"/timeline/[number]">) 
         </div>
         <AskThread asks={asks} founders={founders} me={user.id} />
       </section>
+
+      <FromTasks comments={fromTasks} founders={founders} />
 
       <section className={cardCls}>
         <h2 className={`${h2Cls} px-4 py-3 border-b border-line`}>Notes</h2>

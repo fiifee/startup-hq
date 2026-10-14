@@ -5,6 +5,7 @@ import { DecisionRow } from "@/components/decisions";
 import { DeleteMeeting, EditTranscript, ProcessMeeting } from "@/components/meeting-forms";
 import { NoteTitle } from "@/components/note-header";
 import { Byline } from "@/components/people";
+import { FromTasks } from "@/components/from-tasks";
 import { DriveLinks } from "@/components/task-editor";
 import { ConfirmAll, QuickAddTask, TaskList } from "@/components/tasks";
 import { cardCls, formatDate, h2Cls } from "@/components/ui";
@@ -13,6 +14,7 @@ import { db } from "@/lib/db";
 import { PROVIDERS, type Provider } from "@/lib/llm";
 import { getMeeting } from "@/lib/services/meetings";
 import { listFounders } from "@/lib/services/people";
+import { connectedComments } from "@/lib/services/tasks";
 import { isRecent } from "@/lib/view";
 
 export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
@@ -20,11 +22,12 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
   const { id } = await props.params;
   const m = await getMeeting(id).catch(() => null);
   if (!m) notFound();
-  const [founders, suggestions, links, keys] = await Promise.all([
+  const [founders, suggestions, links, keys, fromTasks] = await Promise.all([
     listFounders(),
     db.suggestion.findMany({ where: { entityType: "block", entityId: { in: m.note.blocks.map((b) => b.id) }, status: "open" } }),
     db.driveLink.findMany({ where: { meetingId: m.id } }),
     db.aiKey.findMany({ where: { userId: user.id }, select: { provider: true, model: true } }),
+    connectedComments({ meetingId: m.id }),
   ]);
   const proposed = m.tasks.filter((t) => t.status === "proposed");
 
@@ -75,6 +78,8 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
           placeholder="Take notes, or let your AI write the summary from the transcript."
         />
       </section>
+
+      <FromTasks comments={fromTasks} founders={founders} />
 
       <section className={cardCls}>
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">

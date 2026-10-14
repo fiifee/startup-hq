@@ -54,10 +54,21 @@ export async function listTasks(
   });
 }
 
+const COMMENT_LINKS = {
+  meeting: { select: { id: true, title: true, date: true } },
+  event: { select: { number: true, title: true, startsAt: true } },
+  agendaItem: { select: { done: true, meeting: { select: { id: true, title: true, date: true } } } },
+} as const;
+
 export async function getTaskDetail(ref: string | number) {
   const t = await findTask(ref);
   const [comments, links] = await Promise.all([
-    db.taskComment.findMany({ where: { taskId: t.id }, orderBy: { createdAt: "asc" } }),
+    db.taskComment.findMany({
+      where: { taskId: t.id },
+      // Pinned first (latest pin on top), then the conversation in order.
+      orderBy: [{ pinnedAt: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
+      include: COMMENT_LINKS,
+    }),
     db.driveLink.findMany({ where: { taskId: t.id }, orderBy: { createdAt: "asc" } }),
   ]);
   return { ...t, comments, links };
@@ -221,5 +232,66 @@ export async function editTaskComment(actor: Actor, commentId: string, body: str
     const updated = await tx.taskComment.update({ where: { id: c.id }, data: { body: text, editedById: actor.userId, editedAt: new Date() } });
     await logActivity(tx, actor, "comment", c.id, "updated", `Edited a comment on T-${c.task.number}: ${text.slice(0, 80)}`, before);
     return updated;
+  });
+}
+
+async function findComment(commentId: string) {
+  const c = await db.taskComment.findUnique({ where: { id: commentId }, include: { task: { select: { number: true, title: true } }, agendaItem: true } });
+  if (!c) throw new Error("Comment not found");
+  return c;
+}
+
+/** Pin a comment to the top of its task, or unpin it. Anyone may. */
+export async function pinComment(actor: Actor, commentId: string, pinned: boolean) {
+  const c = await findComment(commentId);
+  return db.$transaction(async (tx) => {
+    const updated = await tx.taskComment.update({ where: { id: c.id }, data: pinned ? { pinnedAt: new Date(), pinnedById: actor.userId } : { pinnedAt: null, pinnedById: null } });
+    await logActivity(tx, actor, "comment", c.id, pinned ? "pinned" : "unpinned", `${pinned ? "Pinned" : "Unpinned"} a comment on T-${c.task.number}: ${c.body.slice(0, 60)}`);
+    return updated;
+  });
+}
+
+export type CommentTarget = { next: true } | { meetingId: string } | { eventId: string } | null;
+
+/**
+ * Connect a task comment to a meeting, an event, or the next meeting's agenda
+ * (which adds it as a topic), or disconnect it (null). One connection at a time.
+ */
+export async function connectComment(actor: Actor, commentId: string, target: CommentTarget) {
+  const c = await findComment(commentId);
+  return db.$transaction(async (tx) => {
+    // A topic this comment put on the upcoming agenda goes away with the connection.
+    if (c.agendaItem && !c.agendaItem.meetingId && !c.agendaItem.done) await tx.agendaItem.delete({ where: { id: c.agendaItem.id } });
+    const data = { meetingId: null as string | null, eventId: null as string | null, agendaItemId: null as string | null };
+    let label = "";
+    if (target && "next" in target) {
+      const excerpt = c.body.replace(/\s+/g, " ").slice(0, 300);
+      const item = await tx.agendaItem.create({ data: { text: `T-${c.task.number} ${c.task.title}: ${excerpt}`.slice(0, 500), ...by(actor) } });
+      data.agendaItemId = item.id;
+      label = "the next meeting's agenda";
+    } else if (target && "meetingId" in target) {
+      const m = await tx.meeting.findUnique({ where: { id: target.meetingId }, select: { id: true, title: true } });
+      if (!m) throw new Error("Meeting not found");
+      data.meetingId = m.id;
+      label = `meeting "${m.title}"`;
+    } else if (target && "eventId" in target) {
+      const e = await tx.event.findUnique({ where: { id: target.eventId }, select: { id: true, number: true, title: true } });
+      if (!e) throw new Error("Event not found");
+      data.eventId = e.id;
+      label = `E-${e.number} "${e.title}"`;
+    }
+    const updated = await tx.taskComment.update({ where: { id: c.id }, data });
+    await logActivity(tx, actor, "comment", c.id, target ? "connected" : "disconnected",
+      target ? `Connected a comment on T-${c.task.number} to ${label}` : `Disconnected a comment on T-${c.task.number}`);
+    return updated;
+  });
+}
+
+/** Task comments connected to a meeting (directly or via its agenda) or to an event. */
+export async function connectedComments(where: { meetingId: string } | { eventId: string }) {
+  return db.taskComment.findMany({
+    where: "meetingId" in where ? { OR: [{ meetingId: where.meetingId }, { agendaItem: { meetingId: where.meetingId } }] } : { eventId: where.eventId },
+    orderBy: { createdAt: "asc" },
+    include: { task: { select: { number: true, title: true } } },
   });
 }

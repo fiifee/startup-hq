@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { FolderOpen, Link2, Pencil, Trash2, X } from "lucide-react";
-import { commentAction, deleteTaskAction, editCommentAction, linkDriveAction, unlinkDriveAction, updateTaskAction } from "@/app/actions";
+import Link from "next/link";
+import { CalendarClock, CalendarDays, CalendarPlus, FolderOpen, Link2, Pencil, Pin, PinOff, Trash2, X } from "lucide-react";
+import { commentAction, connectCommentAction, deleteTaskAction, editCommentAction, pinCommentAction, linkDriveAction, unlinkDriveAction, updateTaskAction } from "@/app/actions";
 import { Markdown } from "./markdown";
 import { MentionTextarea } from "./mention-textarea";
 import { shortName } from "@/lib/names";
 import { DateInput } from "./date-input";
 import { DrivePicker } from "./drive-picker";
 import { Byline, type Founder } from "./people";
-import { btnDanger, btnPrimary, btnSecondary, btnSmall, inputCls, labelCls, relative, selectCls, STATUS_META, textareaCls } from "./ui";
+import { btnDanger, btnPrimary, btnSecondary, btnSmall, formatDate, inputCls, labelCls, relative, selectCls, STATUS_META, textareaCls } from "./ui";
 import { useAction } from "./use-action";
 
 type Task = {
@@ -199,35 +200,81 @@ export function DriveLinks({ links, target, founders, defaultName }: { links: { 
   );
 }
 
+export type ConnectTargets = {
+  meetings: { id: string; title: string; date: Date }[];
+  events: { id: string; number: number; title: string; startsAt: Date }[];
+};
+
+type CommentView = {
+  id: string;
+  body: string;
+  byId: string | null;
+  agent: string | null;
+  editedById: string | null;
+  editedAt: Date | null;
+  createdAt: Date;
+  pinnedAt: Date | null;
+  meeting: { id: string; title: string; date: Date } | null;
+  event: { number: number; title: string; startsAt: Date } | null;
+  meetingId: string | null;
+  eventId: string | null;
+  agendaItemId: string | null;
+  agendaItem: { done: boolean; meeting: { id: string; title: string; date: Date } | null } | null;
+};
+
+/** What a comment is connected to, as a link: a meeting, an event, or the next meeting's agenda. */
+function Connection({ c }: { c: CommentView }) {
+  const chip = "inline-flex items-center gap-1.5 text-xs text-ink-2 hover:text-ink";
+  const held = c.agendaItem?.meeting;
+  if (held) return <Link href={`/meetings/${held.id}`} className={chip}><CalendarDays className="w-3.5 h-3.5" aria-hidden />Discussed in {held.title} · <span className="ref">{formatDate(held.date, false)}</span></Link>;
+  if (c.agendaItemId) return <Link href="/meetings" className={chip}><CalendarDays className="w-3.5 h-3.5" aria-hidden />On the next meeting&apos;s agenda</Link>;
+  if (c.meeting) return <Link href={`/meetings/${c.meeting.id}`} className={chip}><CalendarDays className="w-3.5 h-3.5" aria-hidden />{c.meeting.title} · <span className="ref">{formatDate(c.meeting.date, false)}</span></Link>;
+  if (c.event) return <Link href={`/timeline/${c.event.number}`} className={chip}><CalendarClock className="w-3.5 h-3.5" aria-hidden /><span className="ref">E-{c.event.number}</span> {c.event.title}</Link>;
+  return null;
+}
+
 /**
  * One comment. Anyone can fix what an AI wrote; a person's own comment is theirs
- * to change. Edits are marked and the old text stays in the history.
+ * to change. Anyone can pin it to the top of the task or connect it to a meeting
+ * or event, where it then shows up with a link back here.
  */
-export function CommentItem({
-  comment: c,
-  founders,
-  me,
-}: {
-  comment: { id: string; body: string; byId: string | null; agent: string | null; editedById: string | null; editedAt: Date | null; createdAt: Date };
-  founders: Founder[];
-  me: string;
-}) {
+export function CommentItem({ comment: c, founders, me, targets }: { comment: CommentView; founders: Founder[]; me: string; targets?: ConnectTargets }) {
   const { pending, run } = useAction();
   const [editing, setEditing] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [body, setBody] = useState(c.body);
   const canEdit = !!c.agent || c.byId === me;
   const editor = founders.find((f) => f.id === c.editedById);
+  const current = c.agendaItemId && !c.agendaItem?.meeting ? "next" : c.meetingId ? `m:${c.meetingId}` : c.eventId ? `e:${c.eventId}` : "";
+  const tool = "p-1 rounded text-ink-3 hover:text-ink hover:bg-sunken opacity-0 group-hover:opacity-100 focus:opacity-100";
   return (
     <li className={`arrive group px-4 py-3 [--mark-top:1.1rem] ${c.agent ? "ai-tint" : ""}`} style={{ ["--who" as string]: founders.find((f) => f.id === c.byId)?.color }}>
       <div className="flex items-center gap-2 mb-1">
         <Byline founders={founders} byId={c.byId} agent={c.agent} size="xs" />
         <span className="text-xs text-ink-3">{relative(c.createdAt)}</span>
         {c.editedAt && <span className="text-xs text-ink-3">· edited{editor ? ` by ${editor.name?.split(" ")[0] ?? editor.email}` : ""}</span>}
-        {canEdit && !editing && (
-          <button onClick={() => setEditing(true)} aria-label="Edit comment" className="ml-auto p-1 rounded text-ink-3 hover:text-ink hover:bg-sunken opacity-0 group-hover:opacity-100 focus:opacity-100">
-            <Pencil className="w-3.5 h-3.5" />
+        {c.pinnedAt && <span className="text-xs font-medium text-ink-2 inline-flex items-center gap-1"><Pin className="w-3 h-3" aria-hidden /> Pinned</span>}
+        <span className="ml-auto flex items-center gap-0.5">
+          <button
+            disabled={pending}
+            onClick={() => run(() => pinCommentAction(c.id, !c.pinnedAt), c.pinnedAt ? "Unpinned" : "Pinned to the top")}
+            aria-label={c.pinnedAt ? "Unpin comment" : "Pin comment to the top"}
+            title={c.pinnedAt ? "Unpin" : "Pin to the top"}
+            className={c.pinnedAt ? "p-1 rounded text-ink-2 hover:text-ink hover:bg-sunken" : tool}
+          >
+            {c.pinnedAt ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
           </button>
-        )}
+          {targets && (
+            <button onClick={() => setConnecting((v) => !v)} aria-label="Connect to a meeting or event" title="Connect to a meeting or event" aria-expanded={connecting} className={connecting ? "p-1 rounded text-ink bg-sunken" : tool}>
+              <CalendarPlus className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {canEdit && !editing && (
+            <button onClick={() => setEditing(true)} aria-label="Edit comment" title="Edit" className={tool}>
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </span>
       </div>
       {editing ? (
         <form
@@ -246,6 +293,33 @@ export function CommentItem({
         </form>
       ) : (
         <Markdown className="text-sm">{c.body}</Markdown>
+      )}
+      {connecting && targets ? (
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <span className="text-ink-2 shrink-0">Connect to</span>
+          <select
+            autoFocus
+            disabled={pending}
+            value={current}
+            onChange={(e) => run(() => connectCommentAction(c.id, e.target.value), e.target.value ? "Connected" : "Disconnected", () => setConnecting(false))}
+            className={`${selectCls} h-8 flex-1 min-w-0`}
+          >
+            <option value="">Nothing</option>
+            <option value="next">Next meeting (adds it to the agenda)</option>
+            {targets.meetings.length > 0 && (
+              <optgroup label="Meetings">
+                {targets.meetings.map((m) => <option key={m.id} value={`m:${m.id}`}>{m.title} · {formatDate(m.date)}</option>)}
+              </optgroup>
+            )}
+            {targets.events.length > 0 && (
+              <optgroup label="Events">
+                {targets.events.map((e) => <option key={e.id} value={`e:${e.id}`}>E-{e.number} {e.title} · {formatDate(e.startsAt)}</option>)}
+              </optgroup>
+            )}
+          </select>
+        </label>
+      ) : (
+        <div className="mt-1.5 empty:hidden"><Connection c={c} /></div>
       )}
     </li>
   );

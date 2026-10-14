@@ -32,7 +32,7 @@ import { extractEvents } from "@/lib/extract-event";
 import { createMeeting, deleteMeeting, updateMeeting } from "@/lib/services/meetings";
 import { appendToNote, createNote, deleteBlock, editBlock, moveBlock, toggleChecklistItem, updateNote } from "@/lib/services/notes";
 import { resolveSuggestion } from "@/lib/services/suggestions";
-import { addTaskComment, createTask, deleteTask, editTaskComment, updateTask, type TaskPatch } from "@/lib/services/tasks";
+import { addTaskComment, connectComment, createTask, deleteTask, editTaskComment, pinComment, updateTask, type CommentTarget, type TaskPatch } from "@/lib/services/tasks";
 import { answerAsk, cancelAsk, createAsk, markAnswersSeen, type AskTarget } from "@/lib/services/asks";
 import { generateWeeklySummary } from "@/lib/services/weekly";
 
@@ -88,6 +88,19 @@ export async function deleteTaskAction(ref: string) {
 export async function editCommentAction(commentId: string, body: string) {
   const { actor } = await me();
   return attempt(() => editTaskComment(actor, commentId, body).then(() => undefined));
+}
+
+export async function pinCommentAction(commentId: string, pinned: boolean) {
+  const { actor } = await me();
+  return attempt(() => pinComment(actor, commentId, pinned).then(() => undefined));
+}
+
+/** target: "next" (next meeting's agenda), "m:<meetingId>", "e:<eventId>", or "" to disconnect. */
+export async function connectCommentAction(commentId: string, target: string) {
+  const { actor } = await me();
+  const t: CommentTarget =
+    target === "next" ? { next: true } : target.startsWith("m:") ? { meetingId: target.slice(2) } : target.startsWith("e:") ? { eventId: target.slice(2) } : null;
+  return attempt(() => connectComment(actor, commentId, t).then(() => undefined));
 }
 
 // ---- Asking teammates for input

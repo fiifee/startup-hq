@@ -16,22 +16,22 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  image     String?
-  color     String    @default("#4a6fa5")
-  isOwner   Boolean   @default(false)
-  googleSub String?   @unique
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  image          String?
+  color          String    @default("#4a6fa5")
+  isOwner        Boolean   @default(false)
+  googleSub      String?   @unique
   /// Let this user's own AI key do background work: summarise new transcripts,
   /// keep the brief current, write the Monday summary.
-  autoAI    Boolean   @default(false)
+  autoAI         Boolean   @default(false)
   /// IANA time zone, detected from the browser; times are shown in it.
-  timezone  String    @default("Europe/Tallinn")
+  timezone       String    @default("Europe/Tallinn")
   /// True when the user picked a zone in Settings; otherwise it follows the browser.
-  timezonePinned Boolean @default(false)
-  joinedAt  DateTime? // null until the founder signs in for the first time
-  createdAt DateTime  @default(now())
+  timezonePinned Boolean   @default(false)
+  joinedAt       DateTime? // null until the founder signs in for the first time
+  createdAt      DateTime  @default(now())
 
   sessions    Session[]
   apiTokens   ApiToken[]
@@ -67,13 +67,13 @@ model ApiToken {
 
 /// MCP clients that registered themselves (RFC 7591), e.g. Claude, ChatGPT, Gemini CLI.
 model OAuthClient {
-  id               String       @id // client_id
-  name             String
-  redirectUris     String[]
-  secretHash       String? // only for confidential clients
-  createdAt        DateTime     @default(now())
-  codes            OAuthCode[]
-  grants           OAuthGrant[]
+  id           String       @id // client_id
+  name         String
+  redirectUris String[]
+  secretHash   String? // only for confidential clients
+  createdAt    DateTime     @default(now())
+  codes        OAuthCode[]
+  grants       OAuthGrant[]
 }
 
 model OAuthCode {
@@ -143,11 +143,11 @@ model Task {
   eventId     String?
   completedAt DateTime?
 
-  createdById String?
+  createdById  String?
   createdAgent String?
   // Who last wrote the title/description. AI may not overwrite a person's text.
-  textById    String?
-  textAgent   String?
+  textById     String?
+  textAgent    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -193,6 +193,7 @@ model Event {
   attendance   EventAttendance[]
   notes        EventNote[]
   tasks        Task[]
+  comments     TaskComment[]
 
   @@index([startsAt])
   @@index([status])
@@ -219,9 +220,9 @@ model EventNote {
   agent      String?
   editedById String?
   editedAt   DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
 }
@@ -230,23 +231,23 @@ model EventNote {
 /// event). One row per person asked. Only the person asked can answer; their AI
 /// may leave a draft for them.
 model Ask {
-  id           String    @id @default(cuid())
-  number       Int       @unique @default(autoincrement())
-  entityType   String // task | note | decision | event
-  entityId     String
-  question     String
-  fromId       String?
-  fromAgent    String?
-  toId         String
-  dueDate      DateTime?
-  status       String    @default("open") // open | answered | declined | cancelled
-  answerKind   String? // reply | approve | decline
-  answer       String    @default("")
-  answeredAt   DateTime?
-  draft        String    @default("")
-  draftAgent   String?
-  seenByAsker  Boolean   @default(false)
-  createdAt    DateTime  @default(now())
+  id          String    @id @default(cuid())
+  number      Int       @unique @default(autoincrement())
+  entityType  String // task | note | decision | event
+  entityId    String
+  question    String
+  fromId      String?
+  fromAgent   String?
+  toId        String
+  dueDate     DateTime?
+  status      String    @default("open") // open | answered | declined | cancelled
+  answerKind  String? // reply | approve | decline
+  answer      String    @default("")
+  answeredAt  DateTime?
+  draft       String    @default("")
+  draftAgent  String?
+  seenByAsker Boolean   @default(false)
+  createdAt   DateTime  @default(now())
 
   @@index([toId, status])
   @@index([fromId, status])
@@ -276,17 +277,29 @@ model Goal {
 }
 
 model TaskComment {
-  id         String    @id @default(cuid())
-  taskId     String
-  body       String
-  byId       String?
-  agent      String?
-  editedById String?
-  editedAt   DateTime?
-  createdAt  DateTime  @default(now())
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  taskId       String
+  body         String
+  byId         String?
+  agent        String?
+  editedById   String?
+  editedAt     DateTime?
+  /// Pinned comments stay at the top of the task.
+  pinnedAt     DateTime?
+  pinnedById   String?
+  /// Connected to one meeting, one event, or a topic on the next meeting's agenda.
+  meetingId    String?
+  eventId      String?
+  agendaItemId String?     @unique
+  createdAt    DateTime    @default(now())
+  task         Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  meeting      Meeting?    @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  event        Event?      @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  agendaItem   AgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
 
   @@index([taskId])
+  @@index([meetingId])
+  @@index([eventId])
 }
 
 model Note {
@@ -322,49 +335,51 @@ model Block {
 }
 
 model Meeting {
-  id           String     @id @default(cuid())
+  id           String        @id @default(cuid())
   title        String
   date         DateTime
-  transcript   String     @default("")
-  noteId       String     @unique
+  transcript   String        @default("")
+  noteId       String        @unique
   processedAt  DateTime?
   processedBy  String? // "Raiko's Claude"
   createdById  String?
   createdAgent String?
-  createdAt    DateTime   @default(now())
-  note         Note       @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  note         Note          @relation(fields: [noteId], references: [id], onDelete: Cascade)
   tasks        Task[]
   decisions    Decision[]
   agendaItems  AgendaItem[]
+  comments     TaskComment[]
 }
 
 model Decision {
-  id           String    @id @default(cuid())
-  number       Int       @unique @default(autoincrement())
+  id           String   @id @default(cuid())
+  number       Int      @unique @default(autoincrement())
   title        String
-  rationale    String    @default("")
-  status       String    @default("active") // open (still to decide) | active | reversed | superseded
-  decidedAt    DateTime  @default(now())
+  rationale    String   @default("")
+  status       String   @default("active") // open (still to decide) | active | reversed | superseded
+  decidedAt    DateTime @default(now())
   meetingId    String?
   createdById  String?
   createdAgent String?
   // Who last wrote the title/rationale. AI may not overwrite a person's wording.
   textById     String?
   textAgent    String?
-  createdAt    DateTime  @default(now())
-  meeting      Meeting?  @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  meeting      Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
 }
 
 /// Topics for the next meeting. meetingId is set once a meeting covers it.
 model AgendaItem {
-  id         String   @id @default(cuid())
-  text       String
-  byId       String?
-  agent      String?
-  meetingId  String?
-  done       Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  meeting    Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  id        String       @id @default(cuid())
+  text      String
+  byId      String?
+  agent     String?
+  meetingId String?
+  done      Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  meeting   Meeting?     @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  comment   TaskComment?
 }
 
 /// An AI change to something a person wrote, waiting for a person to accept it.
@@ -387,17 +402,17 @@ model Suggestion {
 }
 
 model DriveLink {
-  id          String   @id @default(cuid())
-  fileId      String
-  name        String
-  mimeType    String
-  url         String
-  taskId      String?
-  noteId      String?
-  meetingId   String?
-  byId        String?
-  agent       String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  fileId    String
+  name      String
+  mimeType  String
+  url       String
+  taskId    String?
+  noteId    String?
+  meetingId String?
+  byId      String?
+  agent     String?
+  createdAt DateTime @default(now())
 
   @@index([taskId])
   @@index([noteId])
@@ -406,7 +421,7 @@ model DriveLink {
 
 /// Every change, by whom, with the state before it, so any change can be undone.
 model Activity {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   entityType String // task | note | block | meeting | decision | agenda | suggestion | drive
   entityId   String
   action     String // created | updated | deleted | ...
@@ -415,7 +430,7 @@ model Activity {
   byId       String?
   agent      String?
   revertedAt DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([createdAt])
   @@index([entityType, entityId])

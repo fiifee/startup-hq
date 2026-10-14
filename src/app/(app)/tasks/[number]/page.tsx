@@ -12,19 +12,27 @@ import { recentActivity } from "@/lib/services/activity";
 import { listFounders } from "@/lib/services/people";
 import { listAsks } from "@/lib/services/asks";
 import { getTaskDetail } from "@/lib/services/tasks";
-import { feedItems } from "@/lib/view";
+import { daysAgo, feedItems } from "@/lib/view";
 
 export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
   const user = await requireUser();
   const { number } = await props.params;
   const task = await getTaskDetail(number).catch(() => null);
   if (!task) notFound();
-  const [founders, activity, suggestions, goals, asks] = await Promise.all([
+  const [founders, activity, suggestions, goals, asks, meetings, events] = await Promise.all([
     listFounders(),
     recentActivity({ entityType: "task", entityId: task.id, limit: 50 }),
     db.suggestion.findMany({ where: { entityType: "task", entityId: task.id, status: "open" }, orderBy: { createdAt: "asc" } }),
     db.goal.findMany({ where: { OR: [{ status: "active" }, ...(task.goalId ? [{ id: task.goalId }] : [])] }, orderBy: { number: "asc" }, select: { id: true, number: true, title: true } }),
     listAsks({ entityType: "task", entityId: task.id, status: ["open", "answered", "declined"] }),
+    // What a comment can be connected to: recent meetings and current events.
+    db.meeting.findMany({ orderBy: { date: "desc" }, take: 12, select: { id: true, title: true, date: true } }),
+    db.event.findMany({
+      where: { status: "confirmed", startsAt: { gte: daysAgo(14) } },
+      orderBy: { startsAt: "asc" },
+      take: 20,
+      select: { id: true, number: true, title: true, startsAt: true },
+    }),
   ]);
 
   return (
@@ -77,7 +85,7 @@ export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
       <section className={`${cardCls}`}>
         <h2 className={`${h2Cls} px-4 py-3 border-b border-line`}>Comments</h2>
         <ul className="divide-y divide-line">
-          {task.comments.map((c) => <CommentItem key={c.id} comment={c} founders={founders} me={user.id} />)}
+          {task.comments.map((c) => <CommentItem key={c.id} comment={c} founders={founders} me={user.id} targets={{ meetings, events }} />)}
         </ul>
         <div className="p-3 border-t border-line">
           <CommentBox taskRef={String(task.number)} founders={founders} me={user.id} />

@@ -16,7 +16,7 @@ import { API_TOKEN_PREFIX } from "@/lib/agent-auth";
 import { requireOwner, requireUser } from "@/lib/auth";
 import { encrypt, randomToken, sha256 } from "@/lib/crypto";
 import { db } from "@/lib/db";
-import { disconnectDrive, setDriveFolder } from "@/lib/google";
+import { disconnectDrive, driveStatus, setDriveFolder } from "@/lib/google";
 import { PROVIDERS, type Provider } from "@/lib/llm";
 import { processMeetingWithKey } from "@/lib/process-meeting";
 import { revertActivity } from "@/lib/services/activity";
@@ -26,7 +26,7 @@ import { createGoal, updateGoal, type GoalPatch } from "@/lib/services/goals";
 import { isValidTz, parseWhen } from "@/lib/time";
 import { addAgendaItem, removeAgendaItem, setAgendaItemDone } from "@/lib/services/agenda";
 import { recordDecision, updateDecision } from "@/lib/services/decisions";
-import { fileMeta, linkFile, unlinkFile } from "@/lib/services/drive";
+import { createFile, fileMeta, linkFile, listFolder, NEW_KINDS, type NewKind, searchDrive, unlinkFile } from "@/lib/services/drive";
 import { setMeetingFormat } from "@/lib/services/format";
 import { extractEvents } from "@/lib/extract-event";
 import { createMeeting, deleteMeeting, updateMeeting } from "@/lib/services/meetings";
@@ -425,6 +425,43 @@ export async function linkDriveAction(fileIdOrUrl: string, target: { taskId?: st
   const { actor } = await me();
   const id = fileIdOrUrl.match(/[-\w]{25,}/)?.[0] ?? fileIdOrUrl.trim();
   return attempt(() => linkFile(actor, id, target).then(() => undefined));
+}
+
+type DriveTarget = { taskId?: string; noteId?: string; meetingId?: string };
+type DriveEntry = { id: string; name: string; mimeType: string; modifiedTime: string };
+const entry = (f: DriveEntry): DriveEntry => ({ id: f.id, name: f.name, mimeType: f.mimeType, modifiedTime: f.modifiedTime });
+
+/** One level of the shared folder for the file picker. Read-only, so no revalidation. */
+export async function browseDriveAction(folderId?: string): Promise<Result<{ root: { id: string; name: string } | null; files: DriveEntry[] }>> {
+  await requireUser();
+  try {
+    const files = await listFolder(folderId);
+    const s = folderId ? null : await driveStatus();
+    return { ok: true, data: { root: s?.folderId ? { id: s.folderId, name: s.folderName ?? "Shared folder" } : null, files: files.map(entry) } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function searchDriveAction(query: string): Promise<Result<DriveEntry[]>> {
+  await requireUser();
+  try {
+    return { ok: true, data: query.trim() ? (await searchDrive(query)).map(entry) : [] };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Create an empty Doc/Sheet/Slides (linked to the target right away) or a folder (returned to open). */
+export async function createDriveFileAction(kind: NewKind, name: string, folderId: string | undefined, target: DriveTarget) {
+  const { actor } = await me();
+  if (!(kind in NEW_KINDS)) return { ok: false as const, error: "Unknown file type" };
+  if (!name.trim()) return { ok: false as const, error: "Give it a name" };
+  return attempt(async () => {
+    const file = await createFile(actor, kind, name, folderId);
+    if (kind !== "folder") await linkFile(actor, file.id, target);
+    return entry(file);
+  });
 }
 
 export async function unlinkDriveAction(linkId: string) {

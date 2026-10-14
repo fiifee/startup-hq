@@ -89,6 +89,27 @@ export async function createDoc(actor: Actor, name: string, markdown: string, fo
   return file;
 }
 
+export const NEW_KINDS = {
+  doc: { mimeType: "application/vnd.google-apps.document", label: "Google Doc" },
+  sheet: { mimeType: "application/vnd.google-apps.spreadsheet", label: "Google Sheet" },
+  slides: { mimeType: "application/vnd.google-apps.presentation", label: "Google Slides" },
+  folder: { mimeType: FOLDER, label: "folder" },
+} as const;
+export type NewKind = keyof typeof NEW_KINDS;
+
+/** An empty Doc, Sheet, Slides or folder in the shared folder (or a sub-folder). */
+export async function createFile(actor: Actor, kind: NewKind, name: string, folderId?: string) {
+  const parent = await rootFolder(folderId);
+  const res = await driveFetch(`/drive/v3/files?fields=id,name,mimeType,webViewLink,modifiedTime`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: name.trim().slice(0, 200), mimeType: NEW_KINDS[kind].mimeType, parents: [parent] }),
+  });
+  const file: DriveFile = await res.json();
+  await db.$transaction((tx) => logActivity(tx, actor, "drive", file.id, "created", `Created ${NEW_KINDS[kind].label} "${file.name}"`));
+  return file;
+}
+
 export async function linkFile(actor: Actor, fileId: string, target: { taskId?: string; noteId?: string; meetingId?: string }) {
   if (!target.taskId && !target.noteId && !target.meetingId) throw new Error("Link to a task, note or meeting");
   const meta = await fileMeta(fileId);

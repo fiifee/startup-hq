@@ -98,7 +98,7 @@ export default async function MeetingPage(props: PageProps<"/meetings/[id]">) {
 
       <section className={`${cardCls} p-4 space-y-3`}>
         <h2 className={h2Cls}>Drive files</h2>
-        <DriveLinks links={links} target={{ meetingId: m.id }} founders={founders} />
+        <DriveLinks links={links} target={{ meetingId: m.id }} founders={founders} defaultName={m.title} />
       </section>
 
       <details className={cardCls} open={!m.transcript}>

@@ -71,7 +71,7 @@ export default async function TaskPage(props: PageProps<"/tasks/[number]">) {
 
       <section className={`${cardCls} p-4 space-y-3`}>
         <h2 className={h2Cls}>Drive files</h2>
-        <DriveLinks links={task.links} target={{ taskId: task.id }} founders={founders} />
+        <DriveLinks links={task.links} target={{ taskId: task.id }} founders={founders} defaultName={task.title} />
       </section>
 
       <section className={`${cardCls}`}>

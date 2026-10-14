@@ -60,7 +60,7 @@ export default async function NotePage(props: PageProps<"/notes/[id]">) {
       </section>
       <section className={`${cardCls} p-4 space-y-3`}>
         <h2 className={h2Cls}>Drive files</h2>
-        <DriveLinks links={links} target={{ noteId: note.id }} founders={founders} />
+        <DriveLinks links={links} target={{ noteId: note.id }} founders={founders} defaultName={note.title} />
       </section>
       <details className={cardCls}>
         <summary className="px-4 py-3 cursor-pointer text-sm font-semibold">History</summary>

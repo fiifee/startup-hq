@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Link2, Pencil, Trash2, X } from "lucide-react";
+import { FolderOpen, Link2, Pencil, Trash2, X } from "lucide-react";
 import { commentAction, deleteTaskAction, editCommentAction, linkDriveAction, unlinkDriveAction, updateTaskAction } from "@/app/actions";
 import { Markdown } from "./markdown";
 import { MentionTextarea } from "./mention-textarea";
 import { shortName } from "@/lib/names";
 import { DateInput } from "./date-input";
+import { DrivePicker } from "./drive-picker";
 import { Byline, type Founder } from "./people";
 import { btnDanger, btnPrimary, btnSecondary, btnSmall, inputCls, labelCls, relative, selectCls, STATUS_META, textareaCls } from "./ui";
 import { useAction } from "./use-action";
@@ -157,36 +158,42 @@ export function CommentBox({ taskRef, founders, me }: { taskRef: string; founder
   );
 }
 
-export function DriveLinks({ links, target, founders }: { links: { id: string; name: string; url: string; byId: string | null; agent: string | null }[]; target: { taskId?: string; noteId?: string; meetingId?: string }; founders: Founder[] }) {
+export function DriveLinks({ links, target, founders, defaultName }: { links: { id: string; fileId: string; name: string; url: string; byId: string | null; agent: string | null }[]; target: { taskId?: string; noteId?: string; meetingId?: string }; founders: Founder[]; defaultName?: string }) {
   const { pending, run } = useAction();
   const [url, setUrl] = useState("");
-  const [adding, setAdding] = useState(false);
+  const [mode, setMode] = useState<"closed" | "browse" | "paste">("closed");
   return (
     <div className="space-y-2">
       {links.map((l) => (
-        <div key={l.id} className="flex items-center gap-2 text-sm">
+        <div key={l.id} className="arrive flex items-center gap-2 text-sm">
           <Link2 className="w-4 h-4 text-ink-3 shrink-0" />
-          <a href={l.url} target="_blank" rel="noreferrer" className="underline truncate">{l.name}</a>
+          <a href={l.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 truncate">{l.name}</a>
           {l.agent && <Byline founders={founders} byId={l.byId} agent={l.agent} size="xs" />}
           <button aria-label={`Unlink ${l.name}`} onClick={() => run(() => unlinkDriveAction(l.id))} className="ml-auto p-1 rounded text-ink-3 hover:text-ink hover:bg-sunken"><X className="w-3.5 h-3.5" /></button>
         </div>
       ))}
-      {adding ? (
+      {mode === "browse" && <DrivePicker target={target} linked={links.map((l) => l.fileId)} defaultName={defaultName} onClose={() => setMode("closed")} />}
+      {mode === "paste" && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
             run(() => linkDriveAction(url, target), "Linked", () => {
               setUrl("");
-              setAdding(false);
+              setMode("closed");
             });
           }}
           className="flex gap-2"
         >
           <input autoFocus value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Paste a Google Drive link" className={inputCls} />
           <button disabled={pending || !url.trim()} className={btnPrimary}>Attach</button>
+          <button type="button" onClick={() => setMode("closed")} className={btnSecondary}>Cancel</button>
         </form>
-      ) : (
-        <button onClick={() => setAdding(true)} className={btnSmall}><Link2 className="w-4 h-4" /> Attach Drive file</button>
+      )}
+      {mode === "closed" && (
+        <div className="flex items-center gap-1">
+          <button onClick={() => setMode("browse")} className={btnSmall}><FolderOpen className="w-4 h-4" /> Attach from Drive</button>
+          <button onClick={() => setMode("paste")} className={`${btnSmall} text-ink-3`}>Paste a link</button>
+        </div>
       )}
     </div>
   );

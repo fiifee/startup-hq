@@ -31,7 +31,7 @@ export const h1Cls = "text-[1.625rem] leading-tight font-semibold tracking-[-0.0
 export const h2Cls = "text-[1.0625rem] font-semibold tracking-[-0.01em]";
 
 /** Founder colours. #1d5fa8 is Santorini blue, the blue of the Cycladic domes. */
-export const FOUNDER_COLORS = ["#2c6e52", "#1d5fa8", "#4a6fa5", "#b5562b", "#8a4fa3", "#b3264f", "#3f8580", "#8a6d00"];
+export const FOUNDER_COLORS = ["#2c6e52", "#1d5fa8", "#4a6fa5", "#b5562b", "#8a4fa3", "#c2407f", "#b3264f", "#3f8580", "#8a6d00"];
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 

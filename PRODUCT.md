@@ -44,7 +44,8 @@ inferred items arrive as proposed until a person confirms them.
 
 ## Capabilities and Constraints
 
-- Six places: Home (inbox), Tasks (list and board), Meetings, Timeline, Brief, Docs; plus
+- Seven places: Home (inbox), Tasks (list and board), Meetings, Timeline, Brief, CIMIT (the
+  accelerator's milestone checklist, live from its Google Sheet), Docs; plus
   Settings, decisions, goals, notes, activity and search.
 - Capture (⌘K / Ctrl+K) turns text into a task, note, meeting or event.
 - Requests: ask a teammate for input on a task, note, decision or event; @mentions ask too;

@@ -26,6 +26,7 @@ import { createGoal, updateGoal, type GoalPatch } from "@/lib/services/goals";
 import { isValidTz, parseWhen } from "@/lib/time";
 import { addAgendaItem, removeAgendaItem, setAgendaItemDone } from "@/lib/services/agenda";
 import { recordDecision, updateDecision } from "@/lib/services/decisions";
+import { readCimit, setCimitItem, setCimitSheet } from "@/lib/services/cimit";
 import { createFile, fileMeta, linkFile, listFolder, NEW_KINDS, type NewKind, searchDrive, unlinkFile } from "@/lib/services/drive";
 import { setMeetingFormat } from "@/lib/services/format";
 import { extractEvents } from "@/lib/extract-event";
@@ -475,6 +476,22 @@ export async function createDriveFileAction(kind: NewKind, name: string, folderI
     if (kind !== "folder") await linkFile(actor, file.id, target);
     return entry(file);
   });
+}
+
+// ---- CIMIT checklist (a live Google Sheet)
+
+export async function setCimitSheetAction(urlOrId: string) {
+  await me();
+  const id = urlOrId.match(/spreadsheets\/d\/([-\w]+)/)?.[1] ?? urlOrId.trim();
+  return attempt(async () => {
+    await setCimitSheet(id);
+    await readCimit(); // fail now, not on the page, if the layout is not a checklist
+  });
+}
+
+export async function setCimitItemAction(cell: string, done: boolean) {
+  const { actor } = await me();
+  return attempt(() => setCimitItem(actor, cell, done));
 }
 
 export async function unlinkDriveAction(linkId: string) {
